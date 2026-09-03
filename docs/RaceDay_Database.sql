@@ -10,3 +10,9 @@ CREATE TABLE [USER]
     ProfilePictureURL VARCHAR(500),
     CreatedAt DATETIME2
 );
+
+CREATE TABLE [EVENT TYPE]
+(
+    EventTypeID INT IDENTITY(1,1),
+    TypeName VARCHAR(50)
+);
