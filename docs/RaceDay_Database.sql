@@ -52,3 +52,12 @@ CREATE TABLE [ENROLMENT]
     EnrolmentDate DATETIME2,
     EnrolmentStatus VARCHAR(30)
 );
+
+CREATE TABLE [RESULT]
+(
+    ResultID INT IDENTITY(1,1),
+    EnrolmentID INT,
+    FinishTime TIME,
+    FinishPosition INT,
+    ResultStatus VARCHAR(30)
+);
