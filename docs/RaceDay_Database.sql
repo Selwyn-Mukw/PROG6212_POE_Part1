@@ -42,3 +42,13 @@ CREATE TABLE [CATEGORY]
     MaximumAge INT,
     CategoryDistance DECIMAL(6,2)
 );
+
+CREATE TABLE [ENROLMENT]
+(
+    EnrolmentID INT IDENTITY(1,1),
+    ParticipantID INT,
+    EventID INT,
+    CategoryID INT,
+    EnrolmentDate DATETIME2,
+    EnrolmentStatus VARCHAR(30)
+);
