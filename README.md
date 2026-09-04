@@ -57,7 +57,9 @@ The RaceDay database can be created using Microsoft SQL Server Management Studio
 3. Execute the script.
 4. The script will create the required database objects and data for the
    RaceDay system.
-
+   
+## Youtube link
+https://youtu.be/HcojE-xmNg8
 ## CI/CD
 GitHub Actions is used to automatically check that the required Part 1 files are present in the repository.
 
