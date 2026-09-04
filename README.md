@@ -2,8 +2,10 @@
 
 RaceDay event management system
 ## Project Description
+RaceDay is an event management system designed to help organiser's manage race events and allow participants to interact with and participate in those events.
 
-RaceDay is an event management system designed to support the management of racing events and the participation of users in those events.The system provides functionality for organisers to manage events and for participants to interact with available racing events.
+The system is intended to provide a structured way of managing event
+information, participants and the underlying database.
 
 User Roles
 ## Organiser
@@ -45,3 +47,27 @@ PROG6212_POE_Part1/
 │   └── API Endpoint plan.docx
 │
 └── README.md
+'
+## Database Setup
+
+The RaceDay database can be created using Microsoft SQL Server Management Studio (SSMS).
+
+1. Open SQL Server Management Studio.
+2. Open the `RaceDay_Database.sql` script.
+3. Execute the script.
+4. The script will create the required database objects and data for the
+   RaceDay system.
+
+## CI/CD
+GitHub Actions is used to automatically check that the required Part 1 files are present in the repository.
+
+The workflow checks that:
+
+- The `docs` folder exists.
+- The RaceDay ERD PDF exists.
+- The RaceDay API Endpoint Plan PDF exists.
+- The RaceDay SQL database script exists.
+- The `README.md` file exists.
+below is an image of the CI Flow 
+The workflow runs automatically when changes are pushed to the repository.
+<img width="1906" height="816" alt="Screenshot 2026-09-03 212731" src="https://github.com/user-attachments/assets/8a6edb1c-aa0e-414f-b028-2a00d39c6649" />
