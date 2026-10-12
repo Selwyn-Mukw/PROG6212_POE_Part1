@@ -14,4 +14,8 @@
     <Folder Include="Controllers\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RaceDay.contracts\RaceDay.contracts.csproj" />
+  </ItemGroup>
+
 </Project>
