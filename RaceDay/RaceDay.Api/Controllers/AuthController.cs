@@ -268,7 +268,7 @@ namespace RaceDay.Api.Controllers
 
                 var expiryMinutes =
                     _configuration.GetValue<int>(
-                        "Jwt:ExpiryMinutes", 60);
+                        "Jwt:ExpiryMinutes", 1);
 
                 var token = new JwtSecurityToken(
                     issuer: jwtIssuer,
