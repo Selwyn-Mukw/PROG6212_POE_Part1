@@ -268,7 +268,13 @@ namespace RaceDay.Api.Controllers
 
                 var expiryMinutes =
                     _configuration.GetValue<int>(
-                        "Jwt:ExpiryMinutes", 1);
+                        "Jwt:ExpiryMinutes", 60);
+
+                Console.WriteLine(
+                    $"JWT expiry setting: {expiryMinutes} minute(s)");
+
+                Console.WriteLine(
+                    $"Current UTC time: {DateTime.UtcNow:O}");
 
                 var token = new JwtSecurityToken(
                     issuer: jwtIssuer,
@@ -277,6 +283,12 @@ namespace RaceDay.Api.Controllers
                     expires: DateTime.UtcNow.AddMinutes(
                         expiryMinutes),
                     signingCredentials: credentials);
+
+                Console.WriteLine(
+                    $"Token issued at UTC: {DateTime.UtcNow:O}");
+
+                Console.WriteLine(
+                    $"Token expires at UTC: {token.ValidTo:O}");
 
                 string tokenString =
                     new JwtSecurityTokenHandler()
