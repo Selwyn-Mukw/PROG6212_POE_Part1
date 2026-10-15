@@ -298,5 +298,193 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // PUT: api/Events/{id}
+        // Updates an existing event.
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> UpdateEvent(
+            int id,
+            [FromBody] UpdateEventDto request)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
+
+            // Identify the authenticated organiser.
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Check whether this event belongs to the authenticated organiser.
+                const string checkEventSql = @"
+            SELECT COUNT(1)
+            FROM dbo.EVENT
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using var checkEventCommand =
+                    new SqlCommand(checkEventSql, _connection);
+
+                checkEventCommand.Parameters.Add("@EventID", SqlDbType.Int)
+                    .Value = id;
+
+                checkEventCommand.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                var eventExists = Convert.ToInt32(
+                    await checkEventCommand.ExecuteScalarAsync()) > 0;
+
+                if (!eventExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The event was not found or you are not its organiser."
+                    });
+                }
+
+                // Confirm that the supplied event type exists.
+                const string eventTypeSql = @"
+            SELECT COUNT(1)
+            FROM dbo.[EVENT TYPE]
+            WHERE EventTypeID = @EventTypeID;";
+
+                using var eventTypeCommand =
+                    new SqlCommand(eventTypeSql, _connection);
+
+                eventTypeCommand.Parameters.Add("@EventTypeID", SqlDbType.Int)
+                    .Value = request.EventTypeId;
+
+                var eventTypeExists = Convert.ToInt32(
+                    await eventTypeCommand.ExecuteScalarAsync()) > 0;
+
+                if (!eventTypeExists)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified event type does not exist."
+                    });
+                }
+
+                // Update the event and return the updated details.
+                const string updateSql = @"
+            UPDATE dbo.EVENT
+            SET
+                EventTypeID = @EventTypeID,
+                EventName = @EventName,
+                Description = @Description,
+                EventDate = @EventDate,
+                Location = @Location,
+                Distance = @Distance
+            OUTPUT
+                INSERTED.EventID,
+                INSERTED.OrganiserID,
+                INSERTED.EventTypeID,
+                INSERTED.EventName,
+                INSERTED.Description,
+                INSERTED.EventDate,
+                INSERTED.Location,
+                INSERTED.Distance
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using var command = new SqlCommand(updateSql, _connection);
+
+                command.Parameters.Add("@EventID", SqlDbType.Int)
+                    .Value = id;
+
+                command.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                command.Parameters.Add("@EventTypeID", SqlDbType.Int)
+                    .Value = request.EventTypeId;
+
+                command.Parameters.Add("@EventName", SqlDbType.VarChar, 100)
+                    .Value = request.EventName;
+
+                command.Parameters.Add("@Description", SqlDbType.VarChar, 500)
+                    .Value = (object?)request.Description ?? DBNull.Value;
+
+                command.Parameters.Add("@EventDate", SqlDbType.DateTime2)
+                    .Value = request.EventDate;
+
+                command.Parameters.Add("@Location", SqlDbType.VarChar, 150)
+                    .Value = request.Location;
+
+                var distanceParameter =
+                    command.Parameters.Add("@Distance", SqlDbType.Decimal);
+
+                distanceParameter.Precision = 6;
+                distanceParameter.Scale = 2;
+                distanceParameter.Value = request.Distance;
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    return NotFound(new
+                    {
+                        message = "The event could not be found or updated."
+                    });
+                }
+
+                var updatedEvent = new
+                {
+                    EventId = reader.GetInt32(0),
+                    OrganiserId = reader.GetInt32(1),
+                    EventTypeId = reader.GetInt32(2),
+                    EventName = reader.GetString(3),
+                    Description = reader.IsDBNull(4)
+                        ? null
+                        : reader.GetString(4),
+                    EventDate = reader.GetDateTime(5),
+                    Location = reader.GetString(6),
+                    Distance = reader.GetDecimal(7)
+                };
+
+                return Ok(updatedEvent);
+            }
+            catch (SqlException ex) when (
+                ex.Number == 2601 || ex.Number == 2627)
+            {
+                return Conflict(new
+                {
+                    message = "An event with the same unique value already exists."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while updating the event."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
