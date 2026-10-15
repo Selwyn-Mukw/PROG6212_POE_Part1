@@ -325,5 +325,139 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // PUT: api/Enrolments/{id}
+        // Updates the status of an enrolment.
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> UpdateEnrolment(
+            int id,
+            [FromBody] UpdateEnrolmentDto request)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Enrolment ID must be greater than zero."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Confirm that the enrolment belongs to an event
+                // managed by this organiser.
+                const string checkSql = @"
+            SELECT COUNT(1)
+            FROM dbo.ENROLMENT EN
+            INNER JOIN dbo.EVENT E
+                ON E.EventID = EN.EventID
+            WHERE EN.EnrolmentID = @EnrolmentID
+              AND E.OrganiserID = @OrganiserID;";
+
+                using var checkCommand =
+                    new SqlCommand(checkSql, _connection);
+
+                checkCommand.Parameters
+                    .Add("@EnrolmentID", SqlDbType.Int).Value = id;
+
+                checkCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var enrolmentExists = Convert.ToInt32(
+                    await checkCommand.ExecuteScalarAsync()) > 0;
+
+                if (!enrolmentExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The enrolment was not found or does not belong to an event managed by you."
+                    });
+                }
+
+                const string updateSql = @"
+            UPDATE dbo.ENROLMENT
+            SET EnrolmentStatus = @EnrolmentStatus
+            OUTPUT
+                INSERTED.EnrolmentID,
+                INSERTED.ParticipantID,
+                INSERTED.EventID,
+                INSERTED.CategoryID,
+                INSERTED.EnrolmentDate,
+                INSERTED.EnrolmentStatus
+            WHERE EnrolmentID = @EnrolmentID
+              AND EventID IN
+              (
+                  SELECT EventID
+                  FROM dbo.EVENT
+                  WHERE OrganiserID = @OrganiserID
+              );";
+
+                using var updateCommand =
+                    new SqlCommand(updateSql, _connection);
+
+                updateCommand.Parameters
+                    .Add("@EnrolmentID", SqlDbType.Int).Value = id;
+
+                updateCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                updateCommand.Parameters
+                    .Add("@EnrolmentStatus", SqlDbType.VarChar, 30)
+                    .Value = request.EnrolmentStatus;
+
+                using var reader = await updateCommand.ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    return NotFound(new
+                    {
+                        message = "The enrolment could not be found or updated."
+                    });
+                }
+
+                var updatedEnrolment = new EnrolmentDto
+                {
+                    EnrolmentId = reader.GetInt32(0),
+                    ParticipantId = reader.GetInt32(1),
+                    EventId = reader.GetInt32(2),
+                    CategoryId = reader.GetInt32(3),
+                    EnrolmentDate = reader.GetDateTime(4),
+                    EnrolmentStatus = reader.GetString(5)
+                };
+
+                return Ok(updatedEnrolment);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while updating the enrolment."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
