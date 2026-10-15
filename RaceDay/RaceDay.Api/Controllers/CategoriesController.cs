@@ -314,5 +314,174 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // PUT: api/Categories/{id}
+        // Updates an existing category owned by the organiser.
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> UpdateCategory(
+            int id,
+            [FromBody] UpdateCategoryDto request)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Category ID must be greater than zero."
+                });
+            }
+
+            if (request.MinimumAge > request.MaximumAge)
+            {
+                return BadRequest(new
+                {
+                    message = "Minimum age cannot exceed maximum age."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Check that the category belongs to an event owned by this organiser.
+                const string checkSql = @"
+            SELECT COUNT(1)
+            FROM dbo.CATEGORY C
+            INNER JOIN dbo.EVENT E ON E.EventID = C.EventID
+            WHERE C.CategoryID = @CategoryID
+              AND E.OrganiserID = @OrganiserID;";
+
+                using var checkCommand = new SqlCommand(checkSql, _connection);
+
+                checkCommand.Parameters.Add("@CategoryID", SqlDbType.Int)
+                    .Value = id;
+
+                checkCommand.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                var categoryExists = Convert.ToInt32(
+                    await checkCommand.ExecuteScalarAsync()) > 0;
+
+                if (!categoryExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The category was not found or you are not authorised to update it."
+                    });
+                }
+
+                const string sql = @"
+            UPDATE dbo.CATEGORY
+            SET
+                CategoryName = @CategoryName,
+                CategoryType = @CategoryType,
+                MinimumAge = @MinimumAge,
+                MaximumAge = @MaximumAge,
+                CategoryDistance = @CategoryDistance
+            OUTPUT
+                INSERTED.CategoryID,
+                INSERTED.EventID,
+                INSERTED.CategoryName,
+                INSERTED.CategoryType,
+                INSERTED.MinimumAge,
+                INSERTED.MaximumAge,
+                INSERTED.CategoryDistance
+            WHERE CategoryID = @CategoryID
+              AND EventID IN
+              (
+                  SELECT EventID
+                  FROM dbo.EVENT
+                  WHERE OrganiserID = @OrganiserID
+              );";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@CategoryID", SqlDbType.Int)
+                    .Value = id;
+
+                command.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                command.Parameters.Add("@CategoryName", SqlDbType.VarChar, 100)
+                    .Value = request.CategoryName;
+
+                command.Parameters.Add("@CategoryType", SqlDbType.VarChar, 50)
+                    .Value = request.CategoryType;
+
+                command.Parameters.Add("@MinimumAge", SqlDbType.Int)
+                    .Value = request.MinimumAge;
+
+                command.Parameters.Add("@MaximumAge", SqlDbType.Int)
+                    .Value = request.MaximumAge;
+
+                var distanceParameter = command.Parameters.Add(
+                    "@CategoryDistance", SqlDbType.Decimal);
+
+                distanceParameter.Precision = 6;
+                distanceParameter.Scale = 2;
+                distanceParameter.Value = request.CategoryDistance;
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    return NotFound(new
+                    {
+                        message = "The category could not be found or updated."
+                    });
+                }
+
+                var updatedCategory = new CategoryDto
+                {
+                    CategoryId = reader.GetInt32(0),
+                    EventId = reader.GetInt32(1),
+                    CategoryName = reader.GetString(2),
+                    CategoryType = reader.GetString(3),
+                    MinimumAge = reader.GetInt32(4),
+                    MaximumAge = reader.GetInt32(5),
+                    CategoryDistance = reader.GetDecimal(6)
+                };
+
+                return Ok(updatedCategory);
+            }
+            catch (SqlException ex) when (
+                ex.Number == 2601 || ex.Number == 2627)
+            {
+                return Conflict(new
+                {
+                    message = "A category with this name already exists for the selected event."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while updating the category."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
