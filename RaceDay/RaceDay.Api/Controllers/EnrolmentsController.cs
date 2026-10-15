@@ -2,6 +2,8 @@
 using Microsoft.Data.SqlClient;
 using System.Data;
 using RaceDay.contracts.DTOs;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace RaceDay.Api.Controllers
 {
@@ -135,6 +137,184 @@ namespace RaceDay.Api.Controllers
                     new
                     {
                         message = "A database error occurred while retrieving the enrolment."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+        // POST: api/Enrolments
+        // Registers the authenticated participant for an event category.
+        [HttpPost]
+        [Authorize(Roles = "Participant")]
+        public async Task<IActionResult> CreateEnrolment(
+            [FromBody] CreateEnrolmentDto request)
+        {
+            // Get the participant ID from the authenticated JWT.
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int participantId) ||
+                participantId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated participant."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Check that the event exists and that the category belongs to it.
+                const string validationSql = @"
+            SELECT COUNT(1)
+            FROM dbo.CATEGORY
+            WHERE CategoryID = @CategoryID
+              AND EventID = @EventID;";
+
+                using var validationCommand =
+                    new SqlCommand(validationSql, _connection);
+
+                validationCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = request.CategoryId;
+
+                validationCommand.Parameters
+                    .Add("@EventID", SqlDbType.Int).Value = request.EventId;
+
+                var validCategory = Convert.ToInt32(
+                    await validationCommand.ExecuteScalarAsync()) > 0;
+
+                if (!validCategory)
+                {
+                    return BadRequest(new
+                    {
+                        message = "The specified category does not belong to the selected event or does not exist."
+                    });
+                }
+
+                // Prevent duplicate enrolments for the same participant,
+                // event and category.
+                const string duplicateSql = @"
+            SELECT COUNT(1)
+            FROM dbo.ENROLMENT
+            WHERE ParticipantID = @ParticipantID
+              AND EventID = @EventID
+              AND CategoryID = @CategoryID;";
+
+                using var duplicateCommand =
+                    new SqlCommand(duplicateSql, _connection);
+
+                duplicateCommand.Parameters
+                    .Add("@ParticipantID", SqlDbType.Int).Value = participantId;
+
+                duplicateCommand.Parameters
+                    .Add("@EventID", SqlDbType.Int).Value = request.EventId;
+
+                duplicateCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = request.CategoryId;
+
+                var duplicateExists = Convert.ToInt32(
+                    await duplicateCommand.ExecuteScalarAsync()) > 0;
+
+                if (duplicateExists)
+                {
+                    return Conflict(new
+                    {
+                        message = "You are already enrolled in this category for this event."
+                    });
+                }
+
+                // Let SQL Server supply EnrolmentDate and EnrolmentStatus
+                // using the defaults defined in the database.
+                const string insertSql = @"
+            INSERT INTO dbo.ENROLMENT
+            (
+                ParticipantID,
+                EventID,
+                CategoryID
+            )
+            OUTPUT
+                INSERTED.EnrolmentID,
+                INSERTED.ParticipantID,
+                INSERTED.EventID,
+                INSERTED.CategoryID,
+                INSERTED.EnrolmentDate,
+                INSERTED.EnrolmentStatus
+            VALUES
+            (
+                @ParticipantID,
+                @EventID,
+                @CategoryID
+            );";
+
+                using var insertCommand =
+                    new SqlCommand(insertSql, _connection);
+
+                insertCommand.Parameters
+                    .Add("@ParticipantID", SqlDbType.Int).Value = participantId;
+
+                insertCommand.Parameters
+                    .Add("@EventID", SqlDbType.Int).Value = request.EventId;
+
+                insertCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = request.CategoryId;
+
+                using var reader = await insertCommand.ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    return StatusCode(
+                        StatusCodes.Status500InternalServerError,
+                        new
+                        {
+                            message = "The enrolment could not be created."
+                        });
+                }
+
+                var createdEnrolment = new EnrolmentDto
+                {
+                    EnrolmentId = reader.GetInt32(0),
+                    ParticipantId = reader.GetInt32(1),
+                    EventId = reader.GetInt32(2),
+                    CategoryId = reader.GetInt32(3),
+                    EnrolmentDate = reader.GetDateTime(4),
+                    EnrolmentStatus = reader.GetString(5)
+                };
+
+                return StatusCode(
+                    StatusCodes.Status201Created,
+                    createdEnrolment);
+            }
+            catch (SqlException ex) when (
+                ex.Number == 2601 || ex.Number == 2627)
+            {
+                return Conflict(new
+                {
+                    message = "An enrolment for this participant, event and category already exists."
+                });
+            }
+            catch (SqlException ex) when (ex.Number == 547)
+            {
+                return BadRequest(new
+                {
+                    message = "The participant, event or category does not exist or violates a database relationship."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while creating the enrolment."
                     });
             }
             finally
