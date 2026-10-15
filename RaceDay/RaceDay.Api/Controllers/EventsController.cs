@@ -486,5 +486,121 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // DELETE: api/Events/{id}
+        // Deletes an event owned by the authenticated organiser.
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
+
+            // Identify the authenticated organiser.
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Check whether the event belongs to this organiser.
+                const string checkEventSql = @"
+            SELECT COUNT(1)
+            FROM dbo.EVENT
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using var checkEventCommand =
+                    new SqlCommand(checkEventSql, _connection);
+
+                checkEventCommand.Parameters
+                    .Add("@EventID", SqlDbType.Int).Value = id;
+
+                checkEventCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var eventExists = Convert.ToInt32(
+                    await checkEventCommand.ExecuteScalarAsync()) > 0;
+
+                if (!eventExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The event was not found or you are not its organiser."
+                    });
+                }
+
+                // Delete only the event owned by the authenticated organiser.
+                const string deleteSql = @"
+            DELETE FROM dbo.EVENT
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using var deleteCommand =
+                    new SqlCommand(deleteSql, _connection);
+
+                deleteCommand.Parameters
+                    .Add("@EventID", SqlDbType.Int).Value = id;
+
+                deleteCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var rowsAffected = await deleteCommand.ExecuteNonQueryAsync();
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "The event could not be found or deleted."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = $"Event with ID {id} was deleted successfully."
+                });
+            }
+            catch (SqlException ex) when (
+                ex.Number == 547)
+            {
+                // SQL Server error 547 commonly indicates a foreign-key conflict.
+                return Conflict(new
+                {
+                    message = "This event cannot be deleted because related records exist. Resolve the related records before deleting the event."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while deleting the event."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
