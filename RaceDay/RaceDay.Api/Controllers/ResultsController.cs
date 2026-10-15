@@ -452,5 +452,88 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // DELETE: api/Results/{id}
+        // Deletes a result belonging to an event managed by the authenticated organiser.
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> DeleteResult(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Result ID must be greater than zero."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+                    DELETE R
+                    OUTPUT DELETED.ResultID
+                    FROM dbo.RESULT R
+                    INNER JOIN dbo.ENROLMENT EN
+                        ON EN.EnrolmentID = R.EnrolmentID
+                    INNER JOIN dbo.EVENT E
+                        ON E.EventID = EN.EventID
+                    WHERE R.ResultID = @ResultID
+                      AND E.OrganiserID = @OrganiserID;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters
+                    .Add("@ResultID", SqlDbType.Int).Value = id;
+
+                command.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var deletedResultId = await command.ExecuteScalarAsync();
+
+                if (deletedResultId == null || deletedResultId == DBNull.Value)
+                {
+                    return NotFound(new
+                    {
+                        message = "The result was not found or does not belong to an event managed by you."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = $"Result with ID {id} was deleted successfully."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while deleting the result."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
