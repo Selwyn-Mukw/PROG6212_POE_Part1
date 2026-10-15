@@ -459,5 +459,92 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // DELETE: api/Enrolments/{id}
+        // Deletes an enrolment managed by the authenticated organiser.
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> DeleteEnrolment(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Enrolment ID must be greater than zero."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+            DELETE EN
+            FROM dbo.ENROLMENT EN
+            INNER JOIN dbo.EVENT E
+                ON E.EventID = EN.EventID
+            WHERE EN.EnrolmentID = @EnrolmentID
+              AND E.OrganiserID = @OrganiserID;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@EnrolmentID", SqlDbType.Int)
+                    .Value = id;
+
+                command.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                var rowsAffected = await command.ExecuteNonQueryAsync();
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "The enrolment was not found or does not belong to an event managed by you."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = $"Enrolment with ID {id} was deleted successfully."
+                });
+            }
+            catch (SqlException ex) when (ex.Number == 547)
+            {
+                return Conflict(new
+                {
+                    message = "This enrolment cannot be deleted because a related result exists."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while deleting the enrolment."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
