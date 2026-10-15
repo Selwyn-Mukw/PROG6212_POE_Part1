@@ -1,4 +1,4 @@
-name: Part 1 Documentation Check
+name: RaceDay CI and Documentation Check
 
 on:
   push:
@@ -26,3 +26,17 @@ jobs:
 
       - name: Check README
         run: test -f README.md
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore PROG6212_POE_Part1.sln
+
+      - name: Build solution
+        run: dotnet build PROG6212_POE_Part1.sln --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test PROG6212_POE_Part1.sln --configuration Release --no-build
