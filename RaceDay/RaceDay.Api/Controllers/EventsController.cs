@@ -2,6 +2,8 @@
 using Microsoft.Data.SqlClient;
 using System.Data;
 using RaceDay.contracts.DTOs;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace RaceDay.Api.Controllers
 {
@@ -113,6 +115,8 @@ namespace RaceDay.Api.Controllers
                             $"Event with ID {id} was not found."
                     });
                 }
+
+      
 
                 var eventDto = new EventDto
                 {
