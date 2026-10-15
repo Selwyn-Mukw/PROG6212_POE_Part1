@@ -76,6 +76,83 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+
+        // GET: api/Enrolments/mine
+        // Retrieves enrolments belonging to the authenticated participant.
+        [HttpGet("mine")]
+        [Authorize(Roles = "Participant")]
+        public async Task<IActionResult> GetMyEnrolments()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int participantId) ||
+                participantId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated participant."
+                });
+            }
+
+            var enrolments = new List<EnrolmentDto>();
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+            SELECT
+                EnrolmentID,
+                ParticipantID,
+                EventID,
+                CategoryID,
+                EnrolmentDate,
+                EnrolmentStatus
+            FROM dbo.ENROLMENT
+            WHERE ParticipantID = @ParticipantID
+            ORDER BY EnrolmentDate DESC;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@ParticipantID", SqlDbType.Int)
+                    .Value = participantId;
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    enrolments.Add(new EnrolmentDto
+                    {
+                        EnrolmentId = reader.GetInt32(0),
+                        ParticipantId = reader.GetInt32(1),
+                        EventId = reader.GetInt32(2),
+                        CategoryId = reader.GetInt32(3),
+                        EnrolmentDate = reader.GetDateTime(4),
+                        EnrolmentStatus = reader.GetString(5)
+                    });
+                }
+
+                return Ok(enrolments);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while retrieving your enrolments."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
         // GET: api/Enrolments/{id}
         // Retrieves one enrolment by its ID.
         [HttpGet("{id:int}")]
@@ -325,9 +402,123 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+
+        // GET: api/Enrolments/event/{eventId}
+        // Retrieves enrolments for an event managed by the authenticated organiser.
+        [HttpGet("event/{eventId:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> GetEnrolmentsByEvent(int eventId)
+        {
+            if (eventId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Confirm that this event belongs to the authenticated organiser.
+                const string checkEventSql = @"
+            SELECT COUNT(1)
+            FROM dbo.EVENT
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using var checkCommand =
+                    new SqlCommand(checkEventSql, _connection);
+
+                checkCommand.Parameters.Add("@EventID", SqlDbType.Int)
+                    .Value = eventId;
+
+                checkCommand.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                var eventExists = Convert.ToInt32(
+                    await checkCommand.ExecuteScalarAsync()) > 0;
+
+                if (!eventExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The event was not found or is not managed by you."
+                    });
+                }
+
+                // Retrieve enrolments for the authorised event.
+                const string sql = @"
+            SELECT
+                EnrolmentID,
+                ParticipantID,
+                EventID,
+                CategoryID,
+                EnrolmentDate,
+                EnrolmentStatus
+            FROM dbo.ENROLMENT
+            WHERE EventID = @EventID
+            ORDER BY EnrolmentDate DESC;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@EventID", SqlDbType.Int)
+                    .Value = eventId;
+
+                var enrolments = new List<EnrolmentDto>();
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    enrolments.Add(new EnrolmentDto
+                    {
+                        EnrolmentId = reader.GetInt32(0),
+                        ParticipantId = reader.GetInt32(1),
+                        EventId = reader.GetInt32(2),
+                        CategoryId = reader.GetInt32(3),
+                        EnrolmentDate = reader.GetDateTime(4),
+                        EnrolmentStatus = reader.GetString(5)
+                    });
+                }
+
+                return Ok(enrolments);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while retrieving event enrolments."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
         // PUT: api/Enrolments/{id}
         // Updates the status of an enrolment.
         [HttpPut("{id:int}")]
+        [HttpPut("{id:int}/status")]
         [Authorize(Roles = "Organiser")]
         public async Task<IActionResult> UpdateEnrolment(
             int id,

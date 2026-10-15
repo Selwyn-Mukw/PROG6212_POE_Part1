@@ -74,6 +74,194 @@ namespace RaceDay.Api.Controllers
             }
         }
 
+        // GET: api/Results/mine
+        // Retrieves results belonging to the authenticated participant.
+        [HttpGet("mine")]
+        [Authorize(Roles = "Participant")]
+        public async Task<IActionResult> GetMyResults()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int participantId) ||
+                participantId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated participant."
+                });
+            }
+
+            var results = new List<ResultDto>();
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+            SELECT
+                R.ResultID,
+                R.EnrolmentID,
+                R.FinishTime,
+                R.FinishPosition,
+                R.ResultStatus
+            FROM dbo.RESULT R
+            INNER JOIN dbo.ENROLMENT EN
+                ON EN.EnrolmentID = R.EnrolmentID
+            WHERE EN.ParticipantID = @ParticipantID
+            ORDER BY R.FinishPosition;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@ParticipantID", SqlDbType.Int)
+                    .Value = participantId;
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    results.Add(new ResultDto
+                    {
+                        ResultId = reader.GetInt32(0),
+                        EnrolmentId = reader.GetInt32(1),
+                        FinishTime = reader.GetTimeSpan(2),
+                        FinishPosition = reader.GetInt32(3),
+                        ResultStatus = reader.GetString(4)
+                    });
+                }
+
+                return Ok(results);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while retrieving your results."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
+        // GET: api/Results/event/{eventId}
+        // Retrieves results for an event managed by the authenticated organiser.
+        [HttpGet("event/{eventId:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> GetResultsByEvent(int eventId)
+        {
+            if (eventId <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Verify that the event belongs to this organiser.
+                const string checkEventSql = @"
+            SELECT COUNT(1)
+            FROM dbo.EVENT
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using var checkCommand =
+                    new SqlCommand(checkEventSql, _connection);
+
+                checkCommand.Parameters.Add("@EventID", SqlDbType.Int)
+                    .Value = eventId;
+
+                checkCommand.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                var eventExists = Convert.ToInt32(
+                    await checkCommand.ExecuteScalarAsync()) > 0;
+
+                if (!eventExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The event was not found or is not managed by you."
+                    });
+                }
+
+                // Retrieve results for the authorised event.
+                const string sql = @"
+            SELECT
+                R.ResultID,
+                R.EnrolmentID,
+                R.FinishTime,
+                R.FinishPosition,
+                R.ResultStatus
+            FROM dbo.RESULT R
+            INNER JOIN dbo.ENROLMENT EN
+                ON EN.EnrolmentID = R.EnrolmentID
+            WHERE EN.EventID = @EventID
+            ORDER BY R.FinishPosition;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@EventID", SqlDbType.Int)
+                    .Value = eventId;
+
+                var results = new List<ResultDto>();
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    results.Add(new ResultDto
+                    {
+                        ResultId = reader.GetInt32(0),
+                        EnrolmentId = reader.GetInt32(1),
+                        FinishTime = reader.GetTimeSpan(2),
+                        FinishPosition = reader.GetInt32(3),
+                        ResultStatus = reader.GetString(4)
+                    });
+                }
+
+                return Ok(results);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while retrieving event results."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
         // GET: api/Results/{id}
         // Retrieves one result by its ID.
         [HttpGet("{id:int}")]

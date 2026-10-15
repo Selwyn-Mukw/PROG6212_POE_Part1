@@ -132,6 +132,74 @@ namespace RaceDay.Api.Controllers
             }
         }
 
+        // GET: api/Events/mine
+        // Retrieves events created by the authenticated organiser.
+        [HttpGet("mine")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> GetMyEvents()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            var events = new List<object>();
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+            SELECT EventID, EventName, EventDate, Location
+            FROM dbo.EVENT
+            WHERE OrganiserID = @OrganiserID
+            ORDER BY EventDate;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                    .Value = organiserId;
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    events.Add(new
+                    {
+                        EventId = reader.GetInt32(0),
+                        EventName = reader.GetString(1),
+                        EventDate = reader.GetDateTime(2),
+                        Location = reader.GetString(3)
+                    });
+                }
+
+                return Ok(events);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while retrieving your events."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
         // POST: api/Events
         // Creates an event. Only authenticated organisers may do this.
         [HttpPost]
