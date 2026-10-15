@@ -40,7 +40,6 @@ namespace RaceDay.Api.Controllers
                     ORDER BY FinishPosition;";
 
                 using var command = new SqlCommand(sql, _connection);
-
                 using var reader = await command.ExecuteReaderAsync();
 
                 while (await reader.ReadAsync())
@@ -74,6 +73,7 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+
         // GET: api/Results/{id}
         // Retrieves one result by its ID.
         [HttpGet("{id:int}")]
@@ -92,18 +92,19 @@ namespace RaceDay.Api.Controllers
                 await _connection.OpenAsync();
 
                 const string sql = @"
-            SELECT
-                ResultID,
-                EnrolmentID,
-                FinishTime,
-                FinishPosition,
-                ResultStatus
-            FROM dbo.RESULT
-            WHERE ResultID = @ResultID;";
+                    SELECT
+                        ResultID,
+                        EnrolmentID,
+                        FinishTime,
+                        FinishPosition,
+                        ResultStatus
+                    FROM dbo.RESULT
+                    WHERE ResultID = @ResultID;";
 
                 using var command = new SqlCommand(sql, _connection);
 
-                command.Parameters.Add("@ResultID", SqlDbType.Int).Value = id;
+                command.Parameters
+                    .Add("@ResultID", SqlDbType.Int).Value = id;
 
                 using var reader = await command.ExecuteReaderAsync();
 
@@ -143,6 +144,7 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+
         // POST: api/Results
         // Creates a result for an enrolment managed by the authenticated organiser.
         [HttpPost]
@@ -171,12 +173,12 @@ namespace RaceDay.Api.Controllers
                 // Verify that the enrolment belongs to an event
                 // managed by this organiser.
                 const string enrolmentSql = @"
-            SELECT COUNT(1)
-            FROM dbo.ENROLMENT EN
-            INNER JOIN dbo.EVENT E
-                ON E.EventID = EN.EventID
-            WHERE EN.EnrolmentID = @EnrolmentID
-              AND E.OrganiserID = @OrganiserID;";
+                    SELECT COUNT(1)
+                    FROM dbo.ENROLMENT EN
+                    INNER JOIN dbo.EVENT E
+                        ON E.EventID = EN.EventID
+                    WHERE EN.EnrolmentID = @EnrolmentID
+                      AND E.OrganiserID = @OrganiserID;";
 
                 using var enrolmentCommand =
                     new SqlCommand(enrolmentSql, _connection);
@@ -202,9 +204,9 @@ namespace RaceDay.Api.Controllers
 
                 // Prevent multiple results for the same enrolment.
                 const string duplicateSql = @"
-            SELECT COUNT(1)
-            FROM dbo.RESULT
-            WHERE EnrolmentID = @EnrolmentID;";
+                    SELECT COUNT(1)
+                    FROM dbo.RESULT
+                    WHERE EnrolmentID = @EnrolmentID;";
 
                 using var duplicateCommand =
                     new SqlCommand(duplicateSql, _connection);
@@ -225,24 +227,24 @@ namespace RaceDay.Api.Controllers
                 }
 
                 const string insertSql = @"
-            INSERT INTO dbo.RESULT
-            (
-                EnrolmentID,
-                FinishTime,
-                FinishPosition
-            )
-            OUTPUT
-                INSERTED.ResultID,
-                INSERTED.EnrolmentID,
-                INSERTED.FinishTime,
-                INSERTED.FinishPosition,
-                INSERTED.ResultStatus
-            VALUES
-            (
-                @EnrolmentID,
-                @FinishTime,
-                @FinishPosition
-            );";
+                    INSERT INTO dbo.RESULT
+                    (
+                        EnrolmentID,
+                        FinishTime,
+                        FinishPosition
+                    )
+                    OUTPUT
+                        INSERTED.ResultID,
+                        INSERTED.EnrolmentID,
+                        INSERTED.FinishTime,
+                        INSERTED.FinishPosition,
+                        INSERTED.ResultStatus
+                    VALUES
+                    (
+                        @EnrolmentID,
+                        @FinishTime,
+                        @FinishPosition
+                    );";
 
                 using var insertCommand =
                     new SqlCommand(insertSql, _connection);
@@ -307,6 +309,139 @@ namespace RaceDay.Api.Controllers
                     new
                     {
                         message = "A database error occurred while creating the result."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
+        // PUT: api/Results/{id}
+        // Updates a result belonging to an event managed by the authenticated organiser.
+        [HttpPut("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> UpdateResult(
+            int id,
+            [FromBody] CreateResultDto request)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Result ID must be greater than zero."
+                });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Verify that the result belongs to an event
+                // managed by the authenticated organiser.
+                const string ownershipSql = @"
+                    SELECT COUNT(1)
+                    FROM dbo.RESULT R
+                    INNER JOIN dbo.ENROLMENT EN
+                        ON EN.EnrolmentID = R.EnrolmentID
+                    INNER JOIN dbo.EVENT E
+                        ON E.EventID = EN.EventID
+                    WHERE R.ResultID = @ResultID
+                      AND E.OrganiserID = @OrganiserID;";
+
+                using var ownershipCommand =
+                    new SqlCommand(ownershipSql, _connection);
+
+                ownershipCommand.Parameters
+                    .Add("@ResultID", SqlDbType.Int).Value = id;
+
+                ownershipCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var resultBelongsToOrganiser = Convert.ToInt32(
+                    await ownershipCommand.ExecuteScalarAsync()) > 0;
+
+                if (!resultBelongsToOrganiser)
+                {
+                    return NotFound(new
+                    {
+                        message = "The result was not found or does not belong to an event managed by you."
+                    });
+                }
+
+                const string updateSql = @"
+                    UPDATE dbo.RESULT
+                    SET
+                        FinishTime = @FinishTime,
+                        FinishPosition = @FinishPosition
+                    OUTPUT
+                        INSERTED.ResultID,
+                        INSERTED.EnrolmentID,
+                        INSERTED.FinishTime,
+                        INSERTED.FinishPosition,
+                        INSERTED.ResultStatus
+                    WHERE ResultID = @ResultID;";
+
+                using var updateCommand =
+                    new SqlCommand(updateSql, _connection);
+
+                updateCommand.Parameters
+                    .Add("@ResultID", SqlDbType.Int).Value = id;
+
+                updateCommand.Parameters
+                    .Add("@FinishTime", SqlDbType.Time).Value =
+                        request.FinishTime;
+
+                updateCommand.Parameters
+                    .Add("@FinishPosition", SqlDbType.Int).Value =
+                        request.FinishPosition;
+
+                using var reader =
+                    await updateCommand.ExecuteReaderAsync();
+
+                if (!await reader.ReadAsync())
+                {
+                    return NotFound(new
+                    {
+                        message = "The result could not be found."
+                    });
+                }
+
+                var updatedResult = new ResultDto
+                {
+                    ResultId = reader.GetInt32(0),
+                    EnrolmentId = reader.GetInt32(1),
+                    FinishTime = reader.GetTimeSpan(2),
+                    FinishPosition = reader.GetInt32(3),
+                    ResultStatus = reader.GetString(4)
+                };
+
+                return Ok(updatedResult);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while updating the result."
                     });
             }
             finally
