@@ -483,5 +483,128 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+        // DELETE: api/Categories/{id}
+        // Deletes a category owned by the authenticated organiser.
+        [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> DeleteCategory(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Category ID must be greater than zero."
+                });
+            }
+
+            // Identify the authenticated organiser.
+            var userIdClaim = User.FindFirst(
+                System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                // Check whether the category belongs to an event
+                // owned by the authenticated organiser.
+                const string checkSql = @"
+            SELECT COUNT(1)
+            FROM dbo.CATEGORY C
+            INNER JOIN dbo.EVENT E
+                ON E.EventID = C.EventID
+            WHERE C.CategoryID = @CategoryID
+              AND E.OrganiserID = @OrganiserID;";
+
+                using var checkCommand =
+                    new SqlCommand(checkSql, _connection);
+
+                checkCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = id;
+
+                checkCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var categoryExists = Convert.ToInt32(
+                    await checkCommand.ExecuteScalarAsync()) > 0;
+
+                if (!categoryExists)
+                {
+                    return NotFound(new
+                    {
+                        message = "The category was not found or you are not authorised to delete it."
+                    });
+                }
+
+                // Delete only the category belonging to this organiser.
+                const string deleteSql = @"
+            DELETE C
+            FROM dbo.CATEGORY C
+            INNER JOIN dbo.EVENT E
+                ON E.EventID = C.EventID
+            WHERE C.CategoryID = @CategoryID
+              AND E.OrganiserID = @OrganiserID;";
+
+                using var deleteCommand =
+                    new SqlCommand(deleteSql, _connection);
+
+                deleteCommand.Parameters
+                    .Add("@CategoryID", SqlDbType.Int).Value = id;
+
+                deleteCommand.Parameters
+                    .Add("@OrganiserID", SqlDbType.Int).Value = organiserId;
+
+                var rowsAffected =
+                    await deleteCommand.ExecuteNonQueryAsync();
+
+                if (rowsAffected == 0)
+                {
+                    return NotFound(new
+                    {
+                        message = "The category could not be found or deleted."
+                    });
+                }
+
+                return Ok(new
+                {
+                    message = $"Category with ID {id} was deleted successfully."
+                });
+            }
+            catch (SqlException ex) when (ex.Number == 547)
+            {
+                // SQL Server error 547 commonly indicates a foreign-key conflict.
+                return Conflict(new
+                {
+                    message = "This category cannot be deleted because related enrolments exist."
+                });
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "A database error occurred while deleting the category."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
     }
 }
