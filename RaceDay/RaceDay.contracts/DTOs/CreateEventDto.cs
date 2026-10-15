@@ -18,7 +18,7 @@ namespace RaceDay.contracts.DTOs
         [StringLength(500)]
         public string? Description { get; set; }
 
-        [Range(typeof(decimal), "0.01", "9999.99")]
+        [Range(0.01, 9999.99)]
         public decimal Distance { get; set; }
 
         [Range(1, int.MaxValue)]
