@@ -67,6 +67,13 @@ namespace RaceDay.Api.Data
                 .HasIndex(r => r.EnrolmentID)
                 .IsUnique();
 
+            modelBuilder.Entity<Enrolment>()
+                .HasOne(e => e.Event)
+                .WithMany()
+                .HasForeignKey(e => e.EventID)
+                .OnDelete(DeleteBehavior.NoAction);
+
+
             // Map tables explicitly
             modelBuilder.Entity<User>().ToTable("USER", "dbo");
             modelBuilder.Entity<Event>().ToTable("EVENT", "dbo");
