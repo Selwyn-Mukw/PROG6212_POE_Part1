@@ -15,7 +15,6 @@ namespace RaceDay.API.Tests
         : IClassFixture<RaceDayWebApplicationFactory>
     {
         private readonly RaceDayWebApplicationFactory _factory;
-        private readonly HttpClient _client;
 
         private const string TestJwtKey =
             "RaceDayIntegrationTestKey_12345678901234567890";
@@ -24,13 +23,12 @@ namespace RaceDay.API.Tests
             RaceDayWebApplicationFactory factory)
         {
             _factory = factory;
-            _client = factory.CreateClient();
         }
 
         [Fact]
         public async Task ProfileEndpoint_WithoutToken_ReturnsUnauthorized()
         {
-            // Arrange: use a client without an authorization token.
+            // Arrange
             using var client = _factory.CreateClient();
 
             // Act
@@ -46,12 +44,7 @@ namespace RaceDay.API.Tests
         public async Task CreateCategory_AsParticipant_ReturnsForbidden()
         {
             // Arrange
-            var token = CreateTestToken("Participant");
-
-            using var client = _factory.CreateClient();
-
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
+            using var client = CreateAuthenticatedClient("Participant");
 
             using var request = new StringContent(
                 """
@@ -69,10 +62,8 @@ namespace RaceDay.API.Tests
 
             // Act
             var response = await client.PostAsync(
-                "/api/Categories", request);
-
-            Console.WriteLine(
-                $"Participant category test returned: {(int)response.StatusCode} {response.StatusCode}");
+                "/api/Categories",
+                request);
 
             // Assert
             Assert.Equal(
@@ -84,12 +75,7 @@ namespace RaceDay.API.Tests
         public async Task CreateEvent_AsParticipant_ReturnsForbidden()
         {
             // Arrange
-            var token = CreateTestToken("Participant");
-
-            using var client = _factory.CreateClient();
-
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
+            using var client = CreateAuthenticatedClient("Participant");
 
             using var request = new StringContent(
                 """
@@ -107,12 +93,113 @@ namespace RaceDay.API.Tests
 
             // Act
             var response = await client.PostAsync(
-                "/api/Events", request);
+                "/api/Events",
+                request);
 
             // Assert
             Assert.Equal(
                 HttpStatusCode.Forbidden,
                 response.StatusCode);
+        }
+
+        [Fact]
+        public async Task CreateResult_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            using var request = new StringContent(
+                """
+                {
+                    "enrolmentId": 1,
+                    "finishTime": "00:25:30",
+                    "finishPosition": 1
+                }
+                """,
+                Encoding.UTF8,
+                "application/json");
+
+            // Act
+            var response = await client.PostAsync(
+                "/api/Results",
+                request);
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task UpdateResult_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            using var request = new StringContent(
+                """
+                {
+                    "enrolmentId": 1,
+                    "finishTime": "00:25:30",
+                    "finishPosition": 1
+                }
+                """,
+                Encoding.UTF8,
+                "application/json");
+
+            // Act
+            var response = await client.PutAsync(
+                "/api/Results/1",
+                request);
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteResult_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            // Act
+            var response = await client.DeleteAsync(
+                "/api/Results/1");
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetEventResults_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            // Act
+            var response = await client.GetAsync(
+                "/api/Results/event/1");
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        private HttpClient CreateAuthenticatedClient(string role)
+        {
+            var client = _factory.CreateClient();
+
+            var token = CreateTestToken(role);
+
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            return client;
         }
 
         private static string CreateTestToken(string role)
