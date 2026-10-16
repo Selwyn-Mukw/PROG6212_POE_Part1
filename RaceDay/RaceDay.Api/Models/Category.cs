@@ -13,10 +13,12 @@ namespace RaceDay.Api.Models
 
         [Required]
         [StringLength(100)]
+        [Column(TypeName = "varchar(100)")]
         public string CategoryName { get; set; } = string.Empty;
 
         [Required]
         [StringLength(50)]
+        [Column(TypeName = "varchar(50)")]
         public string CategoryType { get; set; } = string.Empty;
 
         public int MinimumAge { get; set; }

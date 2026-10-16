@@ -17,27 +17,32 @@ namespace RaceDay.Api.Models
 
         [Required]
         [StringLength(100)]
+        [Column(TypeName = "varchar(100)")]
         public string EventName { get; set; } = string.Empty;
 
         [StringLength(500)]
+        [Column(TypeName = "varchar(500)")]
         public string? Description { get; set; }
 
         public DateTime EventDate { get; set; }
 
         [Required]
         [StringLength(150)]
+        [Column(TypeName = "varchar(150)")]
         public string Location { get; set; } = string.Empty;
 
         [Column(TypeName = "decimal(6,2)")]
         public decimal Distance { get; set; }
 
         [StringLength(500)]
+        [Column(TypeName = "varchar(500)")]
         public string? BannerImageURL { get; set; }
 
         public User Organiser { get; set; } = null!;
 
         public EventType EventType { get; set; } = null!;
 
-        public ICollection<Category> Categories { get; set; } = new List<Category>();
+        public ICollection<Category> Categories { get; set; }
+            = new List<Category>();
     }
 }

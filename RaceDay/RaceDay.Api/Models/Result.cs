@@ -18,6 +18,7 @@ namespace RaceDay.Api.Models
 
         [Required]
         [StringLength(30)]
+        [Column(TypeName = "varchar(30)")]
         public string ResultStatus { get; set; } = string.Empty;
 
         [ForeignKey(nameof(EnrolmentID))]

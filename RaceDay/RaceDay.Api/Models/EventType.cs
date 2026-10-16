@@ -10,7 +10,8 @@ namespace RaceDay.Api.Models
         public int EventTypeID { get; set; }
 
         [Required]
-        [StringLength(100)]
+        [StringLength(50)]
+        [Column(TypeName = "varchar(50)")]
         public string TypeName { get; set; } = string.Empty;
 
         public ICollection<Event> Events { get; set; } = new List<Event>();

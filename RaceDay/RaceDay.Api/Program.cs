@@ -26,12 +26,6 @@ builder.Services.AddDbContext<RaceDayDbContext>(options =>
 builder.Services.AddScoped<SqlConnection>(_ =>
     new SqlConnection(connectionString));
 
-// Database connection
-
-
-builder.Services.AddScoped<SqlConnection>(_ =>
-    new SqlConnection(connectionString));
-
 // Register controllers and Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

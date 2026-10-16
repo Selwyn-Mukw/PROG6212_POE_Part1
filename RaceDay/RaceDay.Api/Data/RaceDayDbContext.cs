@@ -68,6 +68,52 @@ namespace RaceDay.Api.Data
             modelBuilder.Entity<Category>().ToTable("CATEGORY", "dbo");
             modelBuilder.Entity<Enrolment>().ToTable("ENROLMENT", "dbo");
             modelBuilder.Entity<Result>().ToTable("RESULT", "dbo");
+
+            // Preserve existing unique constraints
+
+            modelBuilder.Entity<Category>()
+                .HasIndex(c => new { c.EventID, c.CategoryName })
+                .IsUnique()
+                .HasDatabaseName("UQ_CATEGORY_Event_Name");
+
+            modelBuilder.Entity<Enrolment>()
+                .HasIndex(e => new
+                {
+                    e.ParticipantID,
+                    e.EventID,
+                    e.CategoryID
+                })
+                .IsUnique()
+                .HasDatabaseName("UQ_ENROLMENT_Participant_Event_Category");
+
+            modelBuilder.Entity<Event>()
+                .HasIndex(e => e.EventName)
+                .IsUnique()
+                .HasDatabaseName("UQ_EVENT_Name");
+
+            // Preserve the unique email constraint
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique()
+                .HasDatabaseName("UQ_USER_Email");
+
+            // Preserve existing database defaults
+            modelBuilder.Entity<User>()
+                .Property(u => u.CreatedAt)
+                .HasDefaultValueSql("SYSDATETIME()");
+
+            modelBuilder.Entity<Enrolment>()
+                .Property(e => e.EnrolmentDate)
+                .HasDefaultValueSql("SYSDATETIME()");
+
+            modelBuilder.Entity<Enrolment>()
+                .Property(e => e.EnrolmentStatus)
+                .HasDefaultValue("Pending");
+
+            modelBuilder.Entity<Result>()
+                .Property(r => r.ResultStatus)
+                .HasDefaultValue("Pending");
         }
+
     }
 }
