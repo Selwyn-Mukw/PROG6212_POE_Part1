@@ -161,3 +161,5 @@ dotnet test
 The latest local test run confirmed during development reported 25
 passed, 0 failed, 0 skipped.
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/47e56fa6-4525-4c6c-af7a-e7e8c386bc0e" />
+
