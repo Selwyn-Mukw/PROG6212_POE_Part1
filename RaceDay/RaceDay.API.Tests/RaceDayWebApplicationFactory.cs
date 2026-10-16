@@ -3,9 +3,9 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace RaceDay.API.Tests
@@ -22,18 +22,19 @@ namespace RaceDay.API.Tests
             builder.UseEnvironment("Development");
 
             builder.ConfigureAppConfiguration(
-                (_, configuration) =>
+                (context, configuration) =>
                 {
-                    configuration.AddInMemoryCollection(
-                        new Dictionary<string, string?>
-                        {
-                            ["Jwt:Key"] = TestJwtKey,
-                            ["Jwt:Issuer"] = "RaceDayTestIssuer",
-                            ["Jwt:Audience"] = "RaceDayTestAudience"
-                        });
+                    var settings = new Dictionary<string, string?>
+                    {
+                        ["Jwt:Key"] = TestJwtKey,
+                        ["Jwt:Issuer"] = "RaceDayTestIssuer",
+                        ["Jwt:Audience"] = "RaceDayTestAudience"
+                    };
+
+                    configuration.AddInMemoryCollection(settings);
                 });
 
-            builder.ConfigureServices(services =>
+            builder.ConfigureTestServices(services =>
             {
                 services.PostConfigure<JwtBearerOptions>(
                     JwtBearerDefaults.AuthenticationScheme,
