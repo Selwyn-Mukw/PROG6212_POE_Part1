@@ -73,3 +73,91 @@ The workflow checks that:
 below is an image of the CI Flow 
 The workflow runs automatically when changes are pushed to the repository.
 <img width="1906" height="816" alt="Screenshot 2026-09-03 212731" src="https://github.com/user-attachments/assets/8a6edb1c-aa0e-414f-b028-2a00d39c6649" />
+
+Part2 
+RaceDay is an ASP.NET Core Web API project developed for the PROG6212
+Programming 2B Portfolio of Evidence (PoE), Part 2. It provides API
+functionality for user authentication, events, categories, enrolments
+and results.
+
+Technology Stack
+
+-ASP.NET Core Web API
+-C# and .NET 8
+-SQL Server
+-Entity Framework Core
+-JWT bearer authentication
+-xUnit automated tests
+-Swagger / OpenAPI
+-Solution Structure
+
+The solution contains four projects:
+
+-RaceDay.Api --- API application, controllers, data context,
+models and migrations.
+-RaceDay.contracts --- DTOs used to define API request and
+response contracts.
+-RaceDay.API.Tests --- automated tests, including DTO validation
+and authentication/authorization integration tests.
+-RaceDay.PasswordTool --- password-related utility project.
+
+Database Setup
+
+The application is configured to use a SQL Server database named
+RaceDay. The development connection used for this project has been
+Jivo with Windows authentication.
+
+1.Open the solution in Visual Studio.
+2.Open RaceDay.Api/appsettings.json.
+3.Check the ConnectionStrings section and update RaceDayConnection
+to match your SQL Server instance and environment.
+4.Ensure the RaceDay database and its required tables are present
+before running database-dependent endpoints.
+5.The project contains EF Core migrations. Review the migrations and
+the current database schema before applying migrations in a new
+environment.
+
+Running the API
+1.Clone the repository and open RaceDay/RaceDay.slnx in Visual
+Studio.
+2.Confirm the connection string and JWT configuration are set for your
+local environment.
+3.Set RaceDay.Api as the startup project.
+4.Build the solution.
+5.Run the API using the configured HTTPS launch profile.
+6.Open the Swagger URL shown in the application output or browser
+launch.
+
+Swagger provides an interactive way to inspect the available endpoints
+and send requests. Some endpoints require a valid JWT bearer token.
+
+
+Controller                          Purpose
+AuthController                    Registration and login
+
+ProfileController                 Authenticated user's profile
+
+EventsController                  Event operations
+
+CategoriesController              Event category operations
+
+EnrolmentsController              Participant enrolments and
+organiser enrolment management
+
+ResultsController                 Race results
+
+For the authoritative route templates and request DTOs, inspect the
+controller attributes and DTOs in the repository and use Swagger at
+runtime. Endpoint availability and access requirements should be
+verified against the Part 1 endpoint plan and Part 2 assignment guide.
+
+Automated Tests
+
+The test project is RaceDay.API.Tests.
+
+Run all tests from the solution directory:
+
+dotnet test
+The latest local test run confirmed during development reported 25
+passed, 0 failed, 0 skipped.
+
