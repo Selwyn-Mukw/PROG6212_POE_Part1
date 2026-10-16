@@ -190,6 +190,91 @@ namespace RaceDay.API.Tests
                 response.StatusCode);
         }
 
+        [Fact]
+        public async Task CreateEnrolment_AsOrganiser_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Organiser");
+
+            using var request = new StringContent(
+                """
+        {
+            "eventId": 1,
+            "categoryId": 1
+        }
+        """,
+                Encoding.UTF8,
+                "application/json");
+
+            // Act
+            var response = await client.PostAsync(
+                "/api/Enrolments",
+                request);
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GetEventEnrolments_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            // Act
+            var response = await client.GetAsync(
+                "/api/Enrolments/event/1");
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task UpdateEnrolment_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            using var request = new StringContent(
+                """
+        {
+            "enrolmentStatus": "Confirmed"
+        }
+        """,
+                Encoding.UTF8,
+                "application/json");
+
+            // Act
+            var response = await client.PutAsync(
+                "/api/Enrolments/1",
+                request);
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteEnrolment_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            using var client = CreateAuthenticatedClient("Participant");
+
+            // Act
+            var response = await client.DeleteAsync(
+                "/api/Enrolments/1");
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
         private HttpClient CreateAuthenticatedClient(string role)
         {
             var client = _factory.CreateClient();
