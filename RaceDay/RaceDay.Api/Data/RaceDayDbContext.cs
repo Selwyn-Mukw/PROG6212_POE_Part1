@@ -55,11 +55,17 @@ namespace RaceDay.Api.Data
                 .OnDelete(DeleteBehavior.NoAction);
 
             // ENROLMENT and RESULT relationship
+            // Each enrolment can have zero or one result.
             modelBuilder.Entity<Enrolment>()
                 .HasOne(e => e.Result)
                 .WithOne(r => r.Enrolment)
                 .HasForeignKey<Result>(r => r.EnrolmentID)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // Ensure each enrolment can have at most one result.
+            modelBuilder.Entity<Result>()
+                .HasIndex(r => r.EnrolmentID)
+                .IsUnique();
 
             // Map tables explicitly
             modelBuilder.Entity<User>().ToTable("USER", "dbo");
