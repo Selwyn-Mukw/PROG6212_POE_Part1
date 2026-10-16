@@ -6,7 +6,6 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
@@ -15,6 +14,7 @@ namespace RaceDay.API.Tests
     public class AuthenticationTests
         : IClassFixture<RaceDayWebApplicationFactory>
     {
+        private readonly RaceDayWebApplicationFactory _factory;
         private readonly HttpClient _client;
 
         private const string TestJwtKey =
@@ -23,14 +23,18 @@ namespace RaceDay.API.Tests
         public AuthenticationTests(
             RaceDayWebApplicationFactory factory)
         {
+            _factory = factory;
             _client = factory.CreateClient();
         }
 
         [Fact]
         public async Task ProfileEndpoint_WithoutToken_ReturnsUnauthorized()
         {
+            // Arrange: use a client without an authorization token.
+            using var client = _factory.CreateClient();
+
             // Act
-            var response = await _client.GetAsync("/api/Profile/me");
+            var response = await client.GetAsync("/api/Profile/me");
 
             // Assert
             Assert.Equal(
@@ -44,7 +48,9 @@ namespace RaceDay.API.Tests
             // Arrange
             var token = CreateTestToken("Participant");
 
-            _client.DefaultRequestHeaders.Authorization =
+            using var client = _factory.CreateClient();
+
+            client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", token);
 
             using var request = new StringContent(
@@ -62,10 +68,46 @@ namespace RaceDay.API.Tests
                 "application/json");
 
             // Act
-            var response = await _client.PostAsync(
+            var response = await client.PostAsync(
                 "/api/Categories", request);
+
             Console.WriteLine(
-            $"Participant category test returned: {(int)response.StatusCode} {response.StatusCode}");
+                $"Participant category test returned: {(int)response.StatusCode} {response.StatusCode}");
+
+            // Assert
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                response.StatusCode);
+        }
+
+        [Fact]
+        public async Task CreateEvent_AsParticipant_ReturnsForbidden()
+        {
+            // Arrange
+            var token = CreateTestToken("Participant");
+
+            using var client = _factory.CreateClient();
+
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", token);
+
+            using var request = new StringContent(
+                """
+                {
+                    "eventTypeId": 1,
+                    "eventName": "Integration Test Event",
+                    "description": "Test event",
+                    "eventDate": "2027-06-15T09:00:00",
+                    "location": "Johannesburg",
+                    "distance": 5.00
+                }
+                """,
+                Encoding.UTF8,
+                "application/json");
+
+            // Act
+            var response = await client.PostAsync(
+                "/api/Events", request);
 
             // Assert
             Assert.Equal(
