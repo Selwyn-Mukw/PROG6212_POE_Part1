@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace RaceDay.API.Tests
@@ -21,7 +22,7 @@ namespace RaceDay.API.Tests
             builder.UseEnvironment("Development");
 
             builder.ConfigureAppConfiguration(
-                (context, configuration) =>
+                (_, configuration) =>
                 {
                     var settings = new Dictionary<string, string?>
                     {
@@ -32,6 +33,16 @@ namespace RaceDay.API.Tests
 
                     configuration.AddInMemoryCollection(settings);
                 });
+
+            // Ensure the test host receives JWT configuration
+            // before Program.cs reads the required settings.
+            builder.UseSetting("Jwt:Key", TestJwtKey);
+            builder.UseSetting(
+                "Jwt:Issuer",
+                "RaceDayTestIssuer");
+            builder.UseSetting(
+                "Jwt:Audience",
+                "RaceDayTestAudience");
 
             builder.ConfigureServices(services =>
             {
