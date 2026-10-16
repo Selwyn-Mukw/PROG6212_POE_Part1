@@ -91,6 +91,16 @@ Technology Stack
 -Swagger / OpenAPI
 -Solution Structure
 
+The RaceDay API uses Microsoft SQL Server and a database named RaceDay.
+
+Open the solution in Visual Studio.
+Open RaceDay.Api/appsettings.json.
+Check the RaceDayConnection connection string and update it to match your local SQL Server instance.
+Ensure that the RaceDay database is available.
+Check that the JWT configuration contains the required Key, Issuer, and Audience settings. Use suitable local development values and do not commit real secrets.
+Restore the NuGet packages and build the solution.
+Run the API project and confirm that it starts successfully
+
 The solution contains four projects:
 
 -RaceDay.Api --- API application, controllers, data context,
@@ -100,6 +110,32 @@ response contracts.
 -RaceDay.API.Tests --- automated tests, including DTO validation
 and authentication/authorization integration tests.
 -RaceDay.PasswordTool --- password-related utility project.
+
+User Roles and Permissions
+Organiser
+The Organiser is responsible for managing race events and related information.
+
+Organiser functionality includes:
+Creating race events.
+Updating and deleting events they are authorised to manage.
+Managing event categories.
+Managing enrolment information where authorised.
+Recording and updating race results.
+Accessing endpoints restricted to the Organiser role.
+
+Organiser-only endpoints require appropriate authentication and authorisation.
+
+Participant
+The Participant interacts with race events and accesses information relevant to their participation.
+Participant functionality includes:
+Viewing available events and event categories.
+Accessing participant enrolment functionality.
+Viewing race results where permitted.
+Accessing endpoints restricted to the Participant role.
+
+Participant permissions are enforced through authentication and role-based authorisation where configured.
+
+Important: Your actual controller attributes determine which endpoints each role can access. Check them before claiming that a particular operation is available to a role.
 
 Database Setup
 
@@ -162,4 +198,6 @@ The latest local test run confirmed during development reported 25
 passed, 0 failed, 0 skipped.
 
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/47e56fa6-4525-4c6c-af7a-e7e8c386bc0e" />
+
+Youtube link : https://youtu.be/I0hsUAs0uP8
 
