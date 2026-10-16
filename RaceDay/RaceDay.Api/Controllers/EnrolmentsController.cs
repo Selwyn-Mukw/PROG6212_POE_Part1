@@ -19,10 +19,25 @@ namespace RaceDay.Api.Controllers
         }
 
         // GET: api/Enrolments
-        // Retrieves all enrolments.
+        // Retrieves enrolments belonging only to the authenticated participant.
         [HttpGet]
+        [Authorize(Roles = "Participant")]
         public async Task<IActionResult> GetEnrolments()
         {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int participantId) ||
+                participantId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated participant."
+                });
+            }
+
             var enrolments = new List<EnrolmentDto>();
 
             try
@@ -38,9 +53,11 @@ namespace RaceDay.Api.Controllers
                         EnrolmentDate,
                         EnrolmentStatus
                     FROM dbo.ENROLMENT
+                    WHERE ParticipantID = @ParticipantID
                     ORDER BY EnrolmentDate DESC;";
 
                 using var command = new SqlCommand(sql, _connection);
+                command.Parameters.Add("@ParticipantID", SqlDbType.Int).Value = participantId;
 
                 using var reader = await command.ExecuteReaderAsync();
 
@@ -65,7 +82,7 @@ namespace RaceDay.Api.Controllers
                     StatusCodes.Status500InternalServerError,
                     new
                     {
-                        message = "A database error occurred while retrieving enrolments."
+                        message = "A database error occurred while retrieving your enrolments."
                     });
             }
             finally
@@ -154,8 +171,9 @@ namespace RaceDay.Api.Controllers
         }
 
         // GET: api/Enrolments/{id}
-        // Retrieves one enrolment by its ID.
+        // Retrieves an enrolment only when it belongs to the authenticated participant.
         [HttpGet("{id:int}")]
+        [Authorize(Roles = "Participant")]
         public async Task<IActionResult> GetEnrolmentById(int id)
         {
             if (id <= 0)
@@ -166,24 +184,39 @@ namespace RaceDay.Api.Controllers
                 });
             }
 
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int participantId) ||
+                participantId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated participant."
+                });
+            }
+
             try
             {
                 await _connection.OpenAsync();
 
                 const string sql = @"
-            SELECT
-                EnrolmentID,
-                ParticipantID,
-                EventID,
-                CategoryID,
-                EnrolmentDate,
-                EnrolmentStatus
-            FROM dbo.ENROLMENT
-            WHERE EnrolmentID = @EnrolmentID;";
+                    SELECT
+                        EnrolmentID,
+                        ParticipantID,
+                        EventID,
+                        CategoryID,
+                        EnrolmentDate,
+                        EnrolmentStatus
+                    FROM dbo.ENROLMENT
+                    WHERE EnrolmentID = @EnrolmentID
+                      AND ParticipantID = @ParticipantID;";
 
                 using var command = new SqlCommand(sql, _connection);
-
                 command.Parameters.Add("@EnrolmentID", SqlDbType.Int).Value = id;
+                command.Parameters.Add("@ParticipantID", SqlDbType.Int).Value = participantId;
 
                 using var reader = await command.ExecuteReaderAsync();
 
@@ -224,6 +257,7 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+
         // POST: api/Enrolments
         // Registers the authenticated participant for an event category.
         [HttpPost]
@@ -651,9 +685,10 @@ namespace RaceDay.Api.Controllers
             }
         }
         // DELETE: api/Enrolments/{id}
-        // Deletes an enrolment managed by the authenticated organiser.
+        // Cancels an enrolment belonging to the authenticated participant.
+        // The record is retained so any related result remains linked to it.
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = "Organiser")]
+        [Authorize(Roles = "Participant")]
         public async Task<IActionResult> DeleteEnrolment(int id)
         {
             if (id <= 0)
@@ -669,12 +704,12 @@ namespace RaceDay.Api.Controllers
                 ?? User.FindFirst("userId");
 
             if (userIdClaim == null ||
-                !int.TryParse(userIdClaim.Value, out int organiserId) ||
-                organiserId <= 0)
+                !int.TryParse(userIdClaim.Value, out int participantId) ||
+                participantId <= 0)
             {
                 return Unauthorized(new
                 {
-                    message = "Unable to identify the authenticated organiser."
+                    message = "Unable to identify the authenticated participant."
                 });
             }
 
@@ -683,41 +718,32 @@ namespace RaceDay.Api.Controllers
                 await _connection.OpenAsync();
 
                 const string sql = @"
-            DELETE EN
-            FROM dbo.ENROLMENT EN
-            INNER JOIN dbo.EVENT E
-                ON E.EventID = EN.EventID
-            WHERE EN.EnrolmentID = @EnrolmentID
-              AND E.OrganiserID = @OrganiserID;";
+                    UPDATE dbo.ENROLMENT
+                    SET EnrolmentStatus = 'Cancelled'
+                    WHERE EnrolmentID = @EnrolmentID
+                      AND ParticipantID = @ParticipantID
+                      AND EnrolmentStatus <> 'Cancelled';";
 
                 using var command = new SqlCommand(sql, _connection);
-
-                command.Parameters.Add("@EnrolmentID", SqlDbType.Int)
-                    .Value = id;
-
-                command.Parameters.Add("@OrganiserID", SqlDbType.Int)
-                    .Value = organiserId;
+                command.Parameters.Add("@EnrolmentID", SqlDbType.Int).Value = id;
+                command.Parameters.Add("@ParticipantID", SqlDbType.Int).Value = participantId;
 
                 var rowsAffected = await command.ExecuteNonQueryAsync();
 
                 if (rowsAffected == 0)
                 {
+                    // Do not reveal whether an enrolment belonging to another
+                    // participant exists. This also reports an already-cancelled
+                    // enrolment as not found for this operation.
                     return NotFound(new
                     {
-                        message = "The enrolment was not found or does not belong to an event managed by you."
+                        message = "The enrolment was not found, does not belong to you, or is already cancelled."
                     });
                 }
 
                 return Ok(new
                 {
-                    message = $"Enrolment with ID {id} was deleted successfully."
-                });
-            }
-            catch (SqlException ex) when (ex.Number == 547)
-            {
-                return Conflict(new
-                {
-                    message = "This enrolment cannot be deleted because a related result exists."
+                    message = $"Enrolment with ID {id} was cancelled successfully."
                 });
             }
             catch (SqlException)
@@ -726,7 +752,7 @@ namespace RaceDay.Api.Controllers
                     StatusCodes.Status500InternalServerError,
                     new
                     {
-                        message = "A database error occurred while deleting the enrolment."
+                        message = "A database error occurred while cancelling the enrolment."
                     });
             }
             finally

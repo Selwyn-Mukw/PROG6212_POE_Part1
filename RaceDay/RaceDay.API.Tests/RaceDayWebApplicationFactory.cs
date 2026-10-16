@@ -1,38 +1,40 @@
 ﻿using System.Collections.Generic;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 namespace RaceDay.API.Tests
 {
     public class RaceDayWebApplicationFactory
         : WebApplicationFactory<Program>
     {
+        private const string TestJwtKey =
+            "RaceDayIntegrationTestKey_12345678901234567890";
+
         protected override void ConfigureWebHost(
             IWebHostBuilder builder)
         {
             builder.UseEnvironment("Development");
 
             builder.ConfigureAppConfiguration(
-                (context, configuration) =>
+                (_, configuration) =>
                 {
-                    var settings = new Dictionary<string, string?>
-                    {
-                        ["Jwt:Key"] =
-                            "RaceDayIntegrationTestKey_12345678901234567890",
-                        ["Jwt:Issuer"] = "RaceDayTestIssuer",
-                        ["Jwt:Audience"] = "RaceDayTestAudience"
-                    };
-
-                    configuration.AddInMemoryCollection(settings);
+                    configuration.AddInMemoryCollection(
+                        new Dictionary<string, string?>
+                        {
+                            ["Jwt:Key"] = TestJwtKey,
+                            ["Jwt:Issuer"] = "RaceDayTestIssuer",
+                            ["Jwt:Audience"] = "RaceDayTestAudience"
+                        });
                 });
 
             builder.ConfigureServices(services =>
             {
-                // Keep the test JWT settings consistent with the test token.
                 services.PostConfigure<JwtBearerOptions>(
                     JwtBearerDefaults.AuthenticationScheme,
                     options =>
@@ -44,9 +46,8 @@ namespace RaceDay.API.Tests
                             "RaceDayTestAudience";
 
                         options.TokenValidationParameters.IssuerSigningKey =
-                            new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                                System.Text.Encoding.UTF8.GetBytes(
-                                    "RaceDayIntegrationTestKey_12345678901234567890"));
+                            new SymmetricSecurityKey(
+                                Encoding.UTF8.GetBytes(TestJwtKey));
                     });
             });
         }

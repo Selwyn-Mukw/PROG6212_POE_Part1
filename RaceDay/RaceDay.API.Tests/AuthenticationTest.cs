@@ -159,14 +159,14 @@ namespace RaceDay.API.Tests
         }
 
         [Fact]
-        public async Task DeleteResult_AsParticipant_ReturnsForbidden()
+        public async Task DeleteEnrolment_AsOrganiser_ReturnsForbidden()
         {
             // Arrange
-            using var client = CreateAuthenticatedClient("Participant");
+            using var client = CreateAuthenticatedClient("Organiser");
 
             // Act
             var response = await client.DeleteAsync(
-                "/api/Results/1");
+                "/api/Enrolments/1");
 
             // Assert
             Assert.Equal(
@@ -258,22 +258,7 @@ namespace RaceDay.API.Tests
                 HttpStatusCode.Forbidden,
                 response.StatusCode);
         }
-
-        [Fact]
-        public async Task DeleteEnrolment_AsParticipant_ReturnsForbidden()
-        {
-            // Arrange
-            using var client = CreateAuthenticatedClient("Participant");
-
-            // Act
-            var response = await client.DeleteAsync(
-                "/api/Enrolments/1");
-
-            // Assert
-            Assert.Equal(
-                HttpStatusCode.Forbidden,
-                response.StatusCode);
-        }
+        
 
         private HttpClient CreateAuthenticatedClient(string role)
         {
