@@ -1,4 +1,4 @@
-# PROG6212_POE_Part1
+# PROG6212_POE_Part1,2 & 3
 
 RaceDay event management system
 ## Project Description
