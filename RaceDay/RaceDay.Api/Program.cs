@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using Microsoft.EntityFrameworkCore;
+using RaceDay.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,17 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException(
         "RaceDayConnection is missing from appsettings.json.");
 }
+
+// Register Entity Framework Core
+builder.Services.AddDbContext<RaceDayDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// Register the existing SQL connection
+builder.Services.AddScoped<SqlConnection>(_ =>
+    new SqlConnection(connectionString));
+
+// Database connection
+
 
 builder.Services.AddScoped<SqlConnection>(_ =>
     new SqlConnection(connectionString));
