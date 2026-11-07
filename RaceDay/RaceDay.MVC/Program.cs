@@ -3,6 +3,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+// Configure HTTP client to communicate with RaceDay API
+builder.Services.AddHttpClient("RaceDayApi", client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ApiSettings:BaseUrl"]!);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
