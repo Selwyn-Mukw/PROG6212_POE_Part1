@@ -1,9 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using RaceDay.Mvc.Services;
+using RaceDay.Mvc.ViewModels;
 
 namespace RaceDay.Mvc.Controllers
 {
     public class OrganiserController : Controller
     {
+        private readonly RaceDayApiClient _api;
+
+        public OrganiserController(RaceDayApiClient api)
+        {
+            _api = api;
+        }
         private bool IsOrganiser()
         {
             string? token = HttpContext.Session.GetString("JwtToken");
@@ -25,14 +33,25 @@ namespace RaceDay.Mvc.Controllers
             return View();
         }
 
-        public IActionResult Events()
+        public async Task<IActionResult> Events()
         {
             if (!IsOrganiser())
             {
                 return RedirectToAction("Login", "Auth");
             }
 
-            return View();
+            using var response = await _api.SendAsync(
+                HttpMethod.Get, "api/Events");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                ViewBag.Error = "Unable to retrieve events.";
+                return View(new List<EventVm>());
+            }
+
+            var events = await _api.ReadAsync<List<EventVm>>(response);
+
+            return View(events ?? new List<EventVm>());
         }
     }
 }

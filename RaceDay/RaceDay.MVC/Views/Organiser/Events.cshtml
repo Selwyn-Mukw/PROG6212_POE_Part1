@@ -1,8 +1,58 @@
-﻿@{
+﻿@model List<RaceDay.Mvc.ViewModels.EventVm>
+
+@{
     ViewData["Title"] = "Manage Events";
 }
 
 <div class="container mt-4">
-    <h1>Manage Events</h1>
-    <p>Welcome to the RaceDay event management page.</p>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Manage Events</h2>
+
+        <a asp-controller="Organiser"
+           asp-action="Index"
+           class="btn btn-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="alert alert-info">
+            No events are currently available.
+        </div>
+    }
+    else
+    {
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Event ID</th>
+                    <th>Event Name</th>
+                    <th>Event Date</th>
+                    <th>Location</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td>@item.EventId</td>
+                        <td>@item.EventName</td>
+                        <td>@item.EventDate.ToString("dd MMM yyyy HH:mm")</td>
+                        <td>@item.Location</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
 </div>
