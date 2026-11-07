@@ -4,26 +4,33 @@ namespace RaceDay.Mvc.Controllers
 {
     public class OrganiserController : Controller
     {
-        public IActionResult Index()
+        private bool IsOrganiser()
         {
-            // Check whether the user is logged in
             string? token = HttpContext.Session.GetString("JwtToken");
-
-            if (string.IsNullOrEmpty(token))
-            {
-                return RedirectToAction("Login", "Auth");
-            }
-
-            // Only allow organisers
             string? role = HttpContext.Session.GetString("Role");
 
-            if (role != "Organiser")
+            return !string.IsNullOrEmpty(token) && role == "Organiser";
+        }
+
+        public IActionResult Index()
+        {
+            if (!IsOrganiser())
             {
                 return RedirectToAction("Login", "Auth");
             }
 
             ViewBag.DisplayName =
                 HttpContext.Session.GetString("DisplayName");
+
+            return View();
+        }
+
+        public IActionResult Events()
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
 
             return View();
         }
