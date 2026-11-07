@@ -1,0 +1,113 @@
+﻿@model RaceDay.Mvc.ViewModels.RegisterVm
+
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+
+            <div class="card shadow">
+                <div class="card-body p-4">
+
+                    <h2 class="text-center mb-2">RaceDay</h2>
+                    <p class="text-center text-muted mb-4">
+                        Create your participant account
+                    </p>
+
+                    <form asp-controller="Auth"
+                          asp-action="Register"
+                          method="post">
+
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3">
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="FirstName"
+                                   class="form-label">
+                                First Name
+                            </label>
+                            <input asp-for="FirstName"
+                                   class="form-control"
+                                   placeholder="Enter first name" />
+                            <span asp-validation-for="FirstName"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="LastName"
+                                   class="form-label">
+                                Last Name
+                            </label>
+                            <input asp-for="LastName"
+                                   class="form-control"
+                                   placeholder="Enter last name" />
+                            <span asp-validation-for="LastName"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email"
+                                   class="form-label">
+                                Email Address
+                            </label>
+                            <input asp-for="Email"
+                                   class="form-control"
+                                   placeholder="Enter email address" />
+                            <span asp-validation-for="Email"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="PhoneNumber"
+                                   class="form-label">
+                                Phone Number
+                            </label>
+                            <input asp-for="PhoneNumber"
+                                   class="form-control"
+                                   placeholder="Enter phone number" />
+                            <span asp-validation-for="PhoneNumber"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Password"
+                                   class="form-label">
+                                Password
+                            </label>
+                            <input asp-for="Password"
+                                   class="form-control"
+                                   placeholder="Create a password" />
+                            <span asp-validation-for="Password"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <button type="submit"
+                                class="btn btn-primary w-100">
+                            Create Account
+                        </button>
+
+                    </form>
+
+                    <hr />
+
+                    <p class="text-center mb-0">
+                        Already have an account?
+                        <a asp-controller="Auth"
+                           asp-action="Login">
+                            Login here
+                        </a>
+                    </p>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
