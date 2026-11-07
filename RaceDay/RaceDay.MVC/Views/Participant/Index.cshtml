@@ -1,5 +1,69 @@
-﻿@*
-    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-*@
-@{
+﻿@{
+    ViewData["Title"] = "Participant Dashboard";
 }
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Participant Dashboard</h2>
+            <p class="text-muted">
+                Welcome back, @ViewBag.DisplayName!
+            </p>
+        </div>
+
+        <form asp-controller="Auth" asp-action="Logout" method="post">
+            <button type="submit" class="btn btn-outline-danger">
+                Logout
+            </button>
+        </form>
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Browse Events</h5>
+                    <p class="card-text">
+                        Explore upcoming races and find events
+                        you would like to participate in.
+                    </p>
+                    <a href="#" class="btn btn-primary">
+                        View Events
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">My Enrolments</h5>
+                    <p class="card-text">
+                        View the events you have registered for.
+                    </p>
+                    <a href="#" class="btn btn-primary">
+                        My Enrolments
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">My Results</h5>
+                    <p class="card-text">
+                        View your race results and performance.
+                    </p>
+                    <a href="#" class="btn btn-primary">
+                        View Results
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
