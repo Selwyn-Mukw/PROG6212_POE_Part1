@@ -1,7 +1,22 @@
+using RaceDay.Mvc.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Configure session storage
+builder.Services.AddDistributedMemoryCache();
+
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// Allow services to access the current HTTP session
+builder.Services.AddHttpContextAccessor();
 
 // Configure HTTP client to communicate with RaceDay API
 builder.Services.AddHttpClient("RaceDayApi", client =>
@@ -9,6 +24,8 @@ builder.Services.AddHttpClient("RaceDayApi", client =>
     client.BaseAddress = new Uri(
         builder.Configuration["ApiSettings:BaseUrl"]!);
 });
+
+builder.Services.AddScoped<RaceDayApiClient>();
 
 var app = builder.Build();
 
@@ -24,6 +41,8 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseSession();
 
 app.UseAuthorization();
 
