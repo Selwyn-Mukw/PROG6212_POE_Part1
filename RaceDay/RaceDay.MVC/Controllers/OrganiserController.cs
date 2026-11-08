@@ -577,11 +577,16 @@ namespace RaceDay.Mvc.Controllers
 
             if (!response.IsSuccessStatusCode)
             {
-                string error =
-                    await response.Content.ReadAsStringAsync();
-
-                TempData["Error"] =
-                    "Unable to delete category. " + error;
+                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    TempData["Error"] =
+                        "This category cannot be deleted because participants are already enrolled in it.";
+                }
+                else
+                {
+                    TempData["Error"] =
+                        "Unable to delete this category. Please try again.";
+                }
 
                 return RedirectToAction(
                     "Categories",
