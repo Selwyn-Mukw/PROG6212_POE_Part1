@@ -18,6 +18,55 @@ namespace RaceDay.Api.Controllers
             _connection = connection;
         }
 
+        // GET: api/Events/types
+        // Retrieves all available event types.
+        [HttpGet("types")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> GetEventTypes()
+        {
+            var eventTypes = new List<object>();
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+                    SELECT EventTypeID, TypeName
+                    FROM dbo.[EVENT TYPE]
+                    ORDER BY EventTypeID;";
+
+                using var command = new SqlCommand(sql, _connection);
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    eventTypes.Add(new
+                    {
+                        EventTypeId = reader.GetInt32(0),
+                        EventTypeName = reader.GetString(1)
+                    });
+                }
+
+                return Ok(eventTypes);
+            }
+            catch (SqlException)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "Unable to retrieve event types."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
         // GET: api/Events
         // Retrieves all events.
         [HttpGet]

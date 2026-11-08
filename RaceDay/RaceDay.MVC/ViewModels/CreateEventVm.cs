@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace RaceDay.Mvc.ViewModels
 {
@@ -21,7 +22,9 @@ namespace RaceDay.Mvc.ViewModels
         [Range(0.01, 9999.99)]
         public decimal Distance { get; set; }
 
-        [Range(1, int.MaxValue)]
+        [Range(1, int.MaxValue, ErrorMessage = "Please select an event type.")]
         public int EventTypeId { get; set; }
+
+        public List<SelectListItem> EventTypes { get; set; } = new();
     }
 }

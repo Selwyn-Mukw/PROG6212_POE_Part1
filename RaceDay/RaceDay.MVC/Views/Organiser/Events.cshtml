@@ -7,13 +7,23 @@
 <div class="container mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
+
         <h2>Manage Events</h2>
 
-        <a asp-controller="Organiser"
-           asp-action="Index"
-           class="btn btn-secondary">
-            Back to Dashboard
-        </a>
+        <div>
+            <a asp-controller="Organiser"
+               asp-action="CreateEvent"
+               class="btn btn-primary me-2">
+                + Create New Event
+            </a>
+
+            <a asp-controller="Organiser"
+               asp-action="Index"
+               class="btn btn-secondary">
+                Back to Dashboard
+            </a>
+        </div>
+
     </div>
 
     @if (ViewBag.Error != null)
@@ -32,26 +42,45 @@
     else
     {
         <table class="table table-bordered table-striped">
+
             <thead class="table-dark">
                 <tr>
                     <th>Event ID</th>
                     <th>Event Name</th>
                     <th>Event Date</th>
                     <th>Location</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
 
             <tbody>
+
                 @foreach (var item in Model)
                 {
                     <tr>
                         <td>@item.EventId</td>
+
                         <td>@item.EventName</td>
-                        <td>@item.EventDate.ToString("dd MMM yyyy HH:mm")</td>
+
+                        <td>
+                            @item.EventDate.ToString("dd MMM yyyy HH:mm")
+                        </td>
+
                         <td>@item.Location</td>
+
+                        <td>
+                            <a asp-controller="Organiser"
+                               asp-action="EditEvent"
+                               asp-route-id="@item.EventId"
+                               class="btn btn-warning btn-sm">
+                                Edit
+                            </a>
+                        </td>
                     </tr>
                 }
+
             </tbody>
+
         </table>
     }
 
