@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.OpenApi.Models;
 using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Data;
+using RaceDay.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,9 @@ builder.Services.AddDbContext<RaceDayDbContext>(options =>
 // Register the existing SQL connection
 builder.Services.AddScoped<SqlConnection>(_ =>
     new SqlConnection(connectionString));
+
+// Register Azure Blob Storage service
+builder.Services.AddSingleton<AzureBlobStorageService>();
 
 // Register controllers and Swagger
 builder.Services.AddControllers();
