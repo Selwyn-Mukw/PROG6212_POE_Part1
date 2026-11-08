@@ -21,6 +21,7 @@
 
     <div class="row">
 
+        <!-- Browse Events -->
         <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
@@ -29,13 +30,17 @@
                         Explore upcoming races and find events
                         you would like to participate in.
                     </p>
-                    <a href="#" class="btn btn-primary">
+
+                    <a asp-controller="Participant"
+                       asp-action="Index"
+                       class="btn btn-primary">
                         View Events
                     </a>
                 </div>
             </div>
         </div>
 
+        <!-- My Enrolments -->
         <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
@@ -43,13 +48,17 @@
                     <p class="card-text">
                         View the events you have registered for.
                     </p>
-                    <a href="#" class="btn btn-primary">
+
+                    <a asp-controller="Participant"
+                       asp-action="MyEvents"
+                       class="btn btn-primary">
                         My Enrolments
                     </a>
                 </div>
             </div>
         </div>
 
+        <!-- My Results -->
         <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
@@ -57,7 +66,10 @@
                     <p class="card-text">
                         View your race results and performance.
                     </p>
-                    <a href="#" class="btn btn-primary">
+
+                    <a asp-controller="Participant"
+                       asp-action="MyResults"
+                       class="btn btn-primary">
                         View Results
                     </a>
                 </div>
