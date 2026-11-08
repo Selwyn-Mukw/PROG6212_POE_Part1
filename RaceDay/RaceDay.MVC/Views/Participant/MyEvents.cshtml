@@ -1,0 +1,184 @@
+﻿@model RaceDay.Mvc.ViewModels.MyEnrolmentsVm
+
+@{
+    ViewData["Title"] = "My Enrolments";
+}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>My Enrolments</h2>
+            <p class="text-muted">
+                View and manage your registered race events.
+            </p>
+        </div>
+
+        <a asp-controller="Participant"
+           asp-action="BrowseEvents"
+           class="btn btn-primary">
+            Browse Events
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <h5>Total Enrolments</h5>
+
+            <h2 class="text-primary">
+                @Model.Enrolments.Count
+            </h2>
+
+        </div>
+    </div>
+
+    @if (Model.Enrolments.Any())
+    {
+        <div class="table-responsive">
+
+            <table class="table table-bordered table-hover align-middle">
+
+                <thead class="table-dark">
+                    <tr>
+                        <th>Event</th>
+                        <th>Category</th>
+                        <th>Distance</th>
+                        <th>Event Date</th>
+                        <th>Enrolment Date</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @foreach (var enrolment in Model.Enrolments)
+                    {
+                        var eventItem = Model.Events.FirstOrDefault(
+                            e => e.EventId == enrolment.EventId);
+
+                        var category = Model.Categories.FirstOrDefault(
+                            c => c.CategoryId == enrolment.CategoryId);
+
+                        <tr>
+
+                            <td>
+                                @(eventItem?.EventName ?? "Unknown Event")
+                            </td>
+
+                            <td>
+                                @(category?.CategoryName ?? "Unknown Category")
+                            </td>
+
+                            <td>
+                                @if (category != null)
+                                {
+                                    @category.CategoryDistance
+                                    <span> km</span>
+                                }
+                            </td>
+
+                            <td>
+                                @(eventItem?.EventDate.ToString("dd MMM yyyy") ?? "N/A")
+                            </td>
+
+                            <td>
+                                @enrolment.EnrolmentDate.ToString("dd MMM yyyy")
+                            </td>
+
+                            <td>
+                                @if (enrolment.EnrolmentStatus == "Cancelled")
+                                {
+                                    <span class="badge bg-danger">
+                                        Cancelled
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">
+                                        @enrolment.EnrolmentStatus
+                                    </span>
+                                }
+                            </td>
+
+                            <td>
+
+                                @if (enrolment.EnrolmentStatus != "Cancelled")
+                                {
+                                    <form asp-controller="Participant"
+                                          asp-action="CancelEnrolment"
+                                          method="post"
+                                          onsubmit="return confirm('Are you sure you want to cancel this enrolment?');">
+
+                                        <input type="hidden"
+                                               name="id"
+                                               value="@enrolment.EnrolmentId" />
+
+                                        <button type="submit"
+                                                class="btn btn-outline-danger btn-sm">
+                                            Cancel
+                                        </button>
+
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">
+                                        No action available
+                                    </span>
+                                }
+
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            You have not enrolled in any events yet.
+
+            <a asp-controller="Participant"
+               asp-action="BrowseEvents">
+                Browse upcoming events
+            </a>
+        </div>
+    }
+
+    <a asp-controller="Participant"
+       asp-action="Index"
+       class="btn btn-outline-secondary mt-3">
+
+        Back to Dashboard
+
+    </a>
+
+</div>

@@ -1,0 +1,141 @@
+﻿@model RaceDay.Mvc.ViewModels.EventDetailsVm
+
+@{
+    ViewData["Title"] = "Event Details";
+}
+
+<div class="container mt-4">
+
+    <h2 class="mb-3">Event Details</h2>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <span class="badge bg-success mb-3">
+                Upcoming Event
+            </span>
+
+            <h3>@Model.Event.EventName</h3>
+
+            <hr />
+
+            <p>
+                <strong>Event ID:</strong>
+                @Model.Event.EventId
+            </p>
+
+            <p>
+                <strong>Event Date:</strong>
+                @Model.Event.EventDate.ToString("dd MMMM yyyy")
+            </p>
+
+            <p>
+                <strong>Location:</strong>
+                @Model.Event.Location
+            </p>
+
+        </div>
+    </div>
+
+    <h3 class="mb-3">Available Categories</h3>
+
+    @if (Model.Categories.Any())
+    {
+        <div class="row">
+
+            @foreach (var category in Model.Categories)
+            {
+                <div class="col-md-4 mb-3">
+
+                    <div class="card shadow-sm h-100">
+
+                        <div class="card-body">
+
+                            <h5 class="card-title">
+                                @category.CategoryName
+                            </h5>
+
+                            <p>
+                                <strong>Category Type:</strong>
+                                @category.CategoryType
+                            </p>
+
+                            <p>
+                                <strong>Distance:</strong>
+                                @category.CategoryDistance km
+                            </p>
+
+                            <p>
+                                <strong>Age Group:</strong>
+                                @category.MinimumAge -
+                                @category.MaximumAge years
+                            </p>
+
+                            <form asp-controller="Events"
+                                  asp-action="Enrol"
+                                  method="post">
+
+                                <input type="hidden"
+                                       name="eventId"
+                                       value="@Model.Event.EventId" />
+
+                                <input type="hidden"
+                                       name="categoryId"
+                                       value="@category.CategoryId" />
+
+                                <button type="submit"
+                                        class="btn btn-primary w-100">
+
+                                    Enrol in Event
+
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            No categories are currently available for this event.
+        </div>
+    }
+
+    <a asp-controller="Participant"
+       asp-action="BrowseEvents"
+       class="btn btn-outline-secondary mt-3">
+
+        Back to Events
+
+    </a>
+
+</div>

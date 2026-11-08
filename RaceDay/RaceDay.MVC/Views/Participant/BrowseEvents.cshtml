@@ -1,0 +1,158 @@
+﻿@model RaceDay.Mvc.ViewModels.UpcomingEventsVm
+
+@{
+    ViewData["Title"] = "Upcoming Events";
+}
+
+<div class="container mt-4">
+
+    <div class="mb-4">
+        <h2>Welcome, @Context.Session.GetString("DisplayName")!</h2>
+        <p class="text-muted">
+            Discover upcoming races and find an event to participate in.
+        </p>
+    </div>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    <!-- SEARCH AND FILTER -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <h5 class="mb-3">Find an Event</h5>
+
+            <form asp-controller="Participant"
+                  asp-action="BrowseEvents"
+                  method="get">
+
+                <div class="row">
+
+                    <div class="col-md-5 mb-3">
+                        <label class="form-label">Event Name</label>
+
+                        <input type="text"
+                               name="search"
+                               value="@Model.Search"
+                               class="form-control"
+                               placeholder="Search event name..." />
+                    </div>
+
+                    <div class="col-md-5 mb-3">
+                        <label class="form-label">Location</label>
+
+                        <input type="text"
+                               name="location"
+                               value="@Model.Location"
+                               class="form-control"
+                               placeholder="Search location..." />
+                    </div>
+
+                    <div class="col-md-2 mb-3 d-flex align-items-end">
+
+                        <button type="submit"
+                                class="btn btn-primary w-100">
+                            Search
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <a asp-controller="Participant"
+                   asp-action="BrowseEvents"
+                   class="btn btn-outline-secondary btn-sm">
+                    Clear Filters
+                </a>
+
+            </form>
+
+        </div>
+    </div>
+
+    <!-- UPCOMING EVENTS -->
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <h4>Upcoming Events</h4>
+
+        <span class="badge bg-primary">
+            @Model.Events.Count Events Found
+        </span>
+
+    </div>
+
+    @if (Model.Events.Any())
+    {
+        <div class="row">
+
+            @foreach (var item in Model.Events)
+            {
+                <div class="col-md-4 mb-4">
+
+                    <div class="card shadow-sm h-100">
+
+                        <div class="card-body">
+
+                            <span class="badge bg-success mb-2">
+                                Upcoming
+                            </span>
+
+                            <h5 class="card-title">
+                                @item.EventName
+                            </h5>
+
+                            <p class="text-muted mb-2">
+                                <strong>Date:</strong>
+                                @item.EventDate.ToString("dd MMMM yyyy")
+                            </p>
+
+                            <p class="text-muted mb-3">
+                                <strong>Location:</strong>
+                                @item.Location
+                            </p>
+
+                            <a asp-controller="Events"
+                               asp-action="Details"
+                               asp-route-id="@item.EventId"
+                               class="btn btn-primary w-100">
+                                View Event Details
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            }
+
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            No upcoming events were found.
+            Try changing your search filters.
+        </div>
+    }
+
+    <div class="mt-3">
+        <a asp-controller="Participant"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+
+</div>

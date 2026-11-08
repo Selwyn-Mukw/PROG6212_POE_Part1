@@ -1,0 +1,123 @@
+﻿@model RaceDay.Mvc.ViewModels.MyResultsVm
+
+@{
+    ViewData["Title"] = "My Race Results";
+}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>My Race Results</h2>
+            <p class="text-muted">
+                Review your race performance and finishing positions.
+            </p>
+        </div>
+
+        <a asp-controller="Participant"
+           asp-action="MyEvents"
+           class="btn btn-primary">
+            My Enrolments
+        </a>
+    </div>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5>Total Results</h5>
+            <h2 class="text-primary">@Model.Results.Count</h2>
+        </div>
+    </div>
+
+    @if (Model.Results.Any())
+    {
+        <div class="table-responsive">
+
+            <table class="table table-bordered table-hover align-middle">
+
+                <thead class="table-dark">
+                    <tr>
+                        <th>Event</th>
+                        <th>Event Date</th>
+                        <th>Finish Time</th>
+                        <th>Finishing Position</th>
+                        <th>Result Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @foreach (var result in Model.Results)
+                    {
+                        var enrolment = Model.Enrolments.FirstOrDefault(
+                            e => e.EnrolmentId == result.EnrolmentId);
+
+                        var eventItem = enrolment == null
+                            ? null
+                            : Model.Events.FirstOrDefault(
+                                e => e.EventId == enrolment.EventId);
+
+                        <tr>
+
+                            <td>
+                                @(eventItem?.EventName ?? "Unknown Event")
+                            </td>
+
+                            <td>
+                                @(eventItem?.EventDate.ToString("dd MMM yyyy") ?? "N/A")
+                            </td>
+
+                            <td>
+                                @result.FinishTime
+                            </td>
+
+                            <td>
+                                @result.FinishPosition
+                            </td>
+
+                            <td>
+                                @if (result.ResultStatus == "Completed")
+                                {
+                                    <span class="badge bg-success">
+                                        Completed
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">
+                                        @result.ResultStatus
+                                    </span>
+                                }
+                            </td>
+
+                        </tr>
+                    }
+
+                </tbody>
+
+            </table>
+
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            You do not have any race results available yet.
+            Once results have been captured by the organiser,
+            they will appear here.
+        </div>
+    }
+
+    <a asp-controller="Participant"
+       asp-action="Index"
+       class="btn btn-outline-secondary mt-3">
+        Back to Dashboard
+    </a>
+
+</div>

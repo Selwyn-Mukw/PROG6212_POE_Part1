@@ -12,10 +12,14 @@
             </p>
         </div>
 
-        <form asp-controller="Auth" asp-action="Logout" method="post">
+        <form asp-controller="Auth"
+              asp-action="Logout"
+              method="post">
+
             <button type="submit" class="btn btn-outline-danger">
                 Logout
             </button>
+
         </form>
     </div>
 
@@ -26,13 +30,14 @@
             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="card-title">Browse Events</h5>
+
                     <p class="card-text">
                         Explore upcoming races and find events
                         you would like to participate in.
                     </p>
 
                     <a asp-controller="Participant"
-                       asp-action="Index"
+                       asp-action="BrowseEvents"
                        class="btn btn-primary">
                         View Events
                     </a>
@@ -45,6 +50,7 @@
             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="card-title">My Enrolments</h5>
+
                     <p class="card-text">
                         View the events you have registered for.
                     </p>
@@ -63,6 +69,7 @@
             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <h5 class="card-title">My Results</h5>
+
                     <p class="card-text">
                         View your race results and performance.
                     </p>
@@ -77,5 +84,4 @@
         </div>
 
     </div>
-
 </div>
