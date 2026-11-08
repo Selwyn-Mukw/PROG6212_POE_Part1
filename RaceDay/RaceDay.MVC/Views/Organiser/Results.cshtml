@@ -1,0 +1,229 @@
+﻿@model RaceDay.Mvc.ViewModels.ResultsManagementVm
+
+@{
+    ViewData["Title"] = "Results Management";
+}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Results Management</h2>
+            <p class="text-muted">
+                Capture finishing times and positions for enrolled participants.
+            </p>
+        </div>
+
+        <a asp-controller="Organiser"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <!-- EVENT SELECTION -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+
+            <form asp-controller="Organiser"
+                  asp-action="Results"
+                  method="get">
+
+                <label class="form-label fw-bold">
+                    Select Event
+                </label>
+
+                <div class="input-group">
+
+                    <select name="eventId" class="form-select">
+                        @foreach (var item in Model.Events)
+                        {
+                            <option value="@item.Value"
+                                    selected="@(item.Value == Model.EventId.ToString())">
+                                @item.Text
+                            </option>
+                        }
+                    </select>
+
+                    <button type="submit" class="btn btn-primary">
+                        Load Event
+                    </button>
+
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    @if (Model.EventId > 0)
+    {
+        <div class="row mb-4">
+
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="text-muted">Enrolled Participants</h6>
+                        <h3>@Model.Enrolments.Count</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="text-muted">Results Captured</h6>
+                        <h3>@Model.Results.Count</h3>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="card shadow-sm">
+
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Participant Results</h5>
+            </div>
+
+            <div class="card-body">
+
+                @if (Model.Enrolments.Any())
+                {
+                    <div class="table-responsive">
+
+                        <table class="table table-striped align-middle">
+
+                            <thead>
+                                <tr>
+                                    <th>Enrolment ID</th>
+                                    <th>Participant ID</th>
+                                    <th>Category ID</th>
+                                    <th>Finish Time</th>
+                                    <th>Position</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                @foreach (var enrolment in Model.Enrolments)
+                                {
+                                    var existingResult = Model.Results
+                                        .FirstOrDefault(r => r.EnrolmentId == enrolment.EnrolmentId);
+
+                                    <tr>
+
+                                        <td>@enrolment.EnrolmentId</td>
+
+                                        <td>@enrolment.ParticipantId</td>
+
+                                        <td>@enrolment.CategoryId</td>
+
+                                        @if (existingResult != null)
+                                        {
+                                            <td>
+                                                @existingResult.FinishTime
+                                            </td>
+
+                                            <td>
+                                                <span class="badge bg-success">
+                                                    @existingResult.FinishPosition
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <span class="badge bg-success">
+                                                    Result Captured
+                                                </span>
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td colspan="2">
+
+                                                <form asp-controller="Organiser"
+                                                      asp-action="CaptureResult"
+                                                      method="post"
+                                                      class="d-flex gap-2">
+
+                                                    @Html.AntiForgeryToken()
+
+                                                    <input type="hidden"
+                                                           name="EnrolmentId"
+                                                           value="@enrolment.EnrolmentId" />
+
+                                                    <input type="hidden"
+                                                           name="eventId"
+                                                           value="@Model.EventId" />
+
+                                                    <input type="time"
+                                                           name="FinishTime"
+                                                           step="1"
+                                                           class="form-control"
+                                                           required />
+
+                                                    <input type="number"
+                                                           name="FinishPosition"
+                                                           min="1"
+                                                           placeholder="Position"
+                                                           class="form-control"
+                                                           required />
+
+                                                    <button type="submit"
+                                                            class="btn btn-primary">
+                                                        Save
+                                                    </button>
+
+                                                </form>
+
+                                            </td>
+
+                                            <td>
+                                                <span class="badge bg-warning text-dark">
+                                                    Awaiting Result
+                                                </span>
+                                            </td>
+                                        }
+
+                                    </tr>
+                                }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        No participants have enrolled in this event yet.
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+
+</div>
