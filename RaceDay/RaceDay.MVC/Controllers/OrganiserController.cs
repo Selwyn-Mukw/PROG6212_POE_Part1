@@ -651,5 +651,143 @@ namespace RaceDay.Mvc.Controllers
 
             return View(model);
         }
+        // ==========================================
+        // RESULTS MANAGEMENT
+        // ==========================================
+
+        [HttpGet]
+        public async Task<IActionResult> Results(int? eventId)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            var model = new ResultsManagementVm
+            {
+                Events = await GetOrganiserEventsAsync()
+            };
+
+            if (eventId.HasValue)
+            {
+                model.EventId = eventId.Value;
+            }
+            else if (model.Events.Any())
+            {
+                model.EventId = int.Parse(model.Events.First().Value);
+            }
+
+            if (model.EventId > 0)
+            {
+                // Retrieve participants enrolled in this event.
+                using var enrolmentResponse = await _api.SendAsync(
+                    HttpMethod.Get,
+                    $"api/Enrolments/event/{model.EventId}");
+
+                if (enrolmentResponse.IsSuccessStatusCode)
+                {
+                    model.Enrolments =
+                        await _api.ReadAsync<List<EnrolmentDto>>(enrolmentResponse)
+                        ?? new List<EnrolmentDto>();
+                }
+                else
+                {
+                    ViewBag.Error = "Unable to retrieve event enrolments.";
+                }
+
+                // Retrieve existing results for this event.
+                using var resultResponse = await _api.SendAsync(
+                    HttpMethod.Get,
+                    $"api/Results/event/{model.EventId}");
+
+                if (resultResponse.IsSuccessStatusCode)
+                {
+                    model.Results =
+                        await _api.ReadAsync<List<ResultDto>>(resultResponse)
+                        ?? new List<ResultDto>();
+                }
+                else
+                {
+                    ViewBag.Error = "Unable to retrieve event results.";
+                }
+            }
+
+            return View(model);
+        }
+
+
+        // Capture a participant's result.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CaptureResult(CaptureResultVm model, int eventId)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                TempData["Error"] = "Please enter a valid finish time and finishing position.";
+
+                return RedirectToAction("Results", new { eventId });
+            }
+
+            // Confirm that the enrolment belongs to one of this organiser's events.
+            using var enrolmentResponse = await _api.SendAsync(
+                HttpMethod.Get,
+                $"api/Enrolments/event/{eventId}");
+
+            if (!enrolmentResponse.IsSuccessStatusCode)
+            {
+                TempData["Error"] = "Unable to verify the participant's enrolment.";
+
+                return RedirectToAction("Results", new { eventId });
+            }
+
+            var enrolments =
+                await _api.ReadAsync<List<EnrolmentDto>>(enrolmentResponse)
+                ?? new List<EnrolmentDto>();
+
+            bool validEnrolment = enrolments.Any(e =>
+                e.EnrolmentId == model.EnrolmentId);
+
+            if (!validEnrolment)
+            {
+                TempData["Error"] = "This participant is not enrolled in the selected event.";
+
+                return RedirectToAction("Results", new { eventId });
+            }
+
+            var resultDto = new CreateResultDto
+            {
+                EnrolmentId = model.EnrolmentId,
+                FinishTime = model.FinishTime,
+                FinishPosition = model.FinishPosition
+            };
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Post,
+                "api/Results",
+                resultDto);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    TempData["Error"] = "A result already exists for this participant.";
+                }
+                else
+                {
+                    TempData["Error"] = "Unable to save the result. Please check your details.";
+                }
+
+                return RedirectToAction("Results", new { eventId });
+            }
+
+            TempData["Success"] = "Participant result captured successfully!";
+
+            return RedirectToAction("Results", new { eventId });
+        }
     }
 }
