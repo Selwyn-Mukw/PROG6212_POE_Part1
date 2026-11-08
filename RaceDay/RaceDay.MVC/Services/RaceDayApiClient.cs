@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json;
+using System.Net.Http.Headers;
 
 namespace RaceDay.Mvc.Services;
 
@@ -27,7 +28,7 @@ public class RaceDayApiClient
     }
 
     private HttpRequestMessage CreateRequest(
-    HttpMethod method, string url)
+        HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);
 
@@ -37,13 +38,13 @@ public class RaceDayApiClient
         if (!string.IsNullOrWhiteSpace(token))
         {
             request.Headers.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer", token);
+                new AuthenticationHeaderValue("Bearer", token);
         }
 
         return request;
     }
 
+    // Send JSON requests
     public async Task<HttpResponseMessage> SendAsync(
         HttpMethod method, string url, object? body = null)
     {
@@ -59,6 +60,31 @@ public class RaceDayApiClient
         return await client.SendAsync(request);
     }
 
+    // Upload files using multipart/form-data
+    public async Task<HttpResponseMessage> UploadFileAsync(
+        string url, IFormFile file)
+    {
+        var client = CreateClient();
+
+        using var request = CreateRequest(HttpMethod.Post, url);
+
+        using var content = new MultipartFormDataContent();
+
+        using var stream = file.OpenReadStream();
+
+        using var fileContent = new StreamContent(stream);
+
+        fileContent.Headers.ContentType =
+            new MediaTypeHeaderValue(file.ContentType);
+
+        content.Add(fileContent, "file", file.FileName);
+
+        request.Content = content;
+
+        return await client.SendAsync(request);
+    }
+
+    // Read JSON responses
     public async Task<T?> ReadAsync<T>(
         HttpResponseMessage response)
     {
@@ -70,6 +96,4 @@ public class RaceDayApiClient
         return JsonSerializer.Deserialize<T>(
             json, JsonOptions);
     }
-
-    
 }

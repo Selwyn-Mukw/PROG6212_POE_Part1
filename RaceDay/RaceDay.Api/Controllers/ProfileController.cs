@@ -6,7 +6,6 @@ using Microsoft.Data.SqlClient;
 using RaceDay.Api.Services;
 using System.Security.Claims;
 
-
 namespace RaceDay.Api.Controllers
 {
     [ApiController]
@@ -206,6 +205,63 @@ namespace RaceDay.Api.Controllers
                 {
                     message = "Unable to upload profile picture."
                 });
+            }
+            finally
+            {
+                if (_connection.State != System.Data.ConnectionState.Closed)
+                    await _connection.CloseAsync();
+            }
+        }
+
+        // GET: api/profile/picture
+        [HttpGet("picture")]
+        public async Task<IActionResult> GetProfilePicture()
+        {
+            var userIdClaim = User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(userIdClaim, out int userId))
+                return Unauthorized();
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+                    SELECT ProfilePictureURL
+                    FROM dbo.[USER]
+                    WHERE UserID = @UserID;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.AddWithValue("@UserID", userId);
+
+                var result = await command.ExecuteScalarAsync();
+
+                if (result == null || result == DBNull.Value)
+                    return NotFound("No profile picture found.");
+
+                string blobName = result.ToString()!;
+
+                var picture = await _blobStorage.DownloadAsync(blobName);
+
+                return File(
+                    picture.Content,
+                    picture.ContentType);
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            {
+                return NotFound("Profile picture not found in storage.");
+            }
+            catch (SqlException)
+            {
+                return StatusCode(500,
+                    "Database error retrieving profile picture.");
+            }
+            catch (Exception)
+            {
+                return StatusCode(500,
+                    "Unable to retrieve profile picture.");
             }
             finally
             {
