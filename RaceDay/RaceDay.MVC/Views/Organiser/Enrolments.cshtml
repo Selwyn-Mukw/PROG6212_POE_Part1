@@ -1,5 +1,178 @@
-﻿@*
-    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-*@
+﻿@model RaceDay.Mvc.ViewModels.EnrolmentManagementVm
+
 @{
+    ViewData["Title"] = "Enrolment Management";
 }
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Enrolment Management</h2>
+
+        <a asp-controller="Organiser"
+           asp-action="Index"
+           class="btn btn-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <!-- Event Selection -->
+    <div class="card mb-4">
+
+        <div class="card-header">
+            <h5>Select Event</h5>
+        </div>
+
+        <div class="card-body">
+
+            <form asp-controller="Organiser"
+                  asp-action="Enrolments"
+                  method="get">
+
+                <div class="row align-items-end">
+
+                    <div class="col-md-8">
+                        <label class="form-label">
+                            Choose an Event
+                        </label>
+
+                        <select asp-for="EventId"
+                                asp-items="Model.Events"
+                                class="form-select">
+
+                            <option value="0">
+                                -- Select Event --
+                            </option>
+
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <button type="submit"
+                                class="btn btn-primary">
+                            View Enrolments
+                        </button>
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+    @if (Model.EventId > 0)
+    {
+        <!-- Enrolment Summary -->
+        <div class="card mb-4">
+
+            <div class="card-body">
+
+                <h5>Total Enrolments</h5>
+
+                <h2 class="text-primary">
+                    @Model.Enrolments.Count
+                </h2>
+
+            </div>
+
+        </div>
+
+        <!-- Enrolment Table -->
+        <div class="card">
+
+            <div class="card-header">
+                <h5>Registered Participants</h5>
+            </div>
+
+            <div class="card-body">
+
+                @if (Model.Enrolments.Any())
+                {
+                    <div class="table-responsive">
+
+                        <table class="table table-bordered table-striped">
+
+                            <thead class="table-dark">
+
+                                <tr>
+                                    <th>Enrolment ID</th>
+                                    <th>Participant ID</th>
+                                    <th>Category ID</th>
+                                    <th>Enrolment Date</th>
+                                    <th>Status</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody>
+
+                                @foreach (var enrolment in Model.Enrolments)
+                                {
+                                    <tr>
+
+                                        <td>
+                                            @enrolment.EnrolmentId
+                                        </td>
+
+                                        <td>
+                                            @enrolment.ParticipantId
+                                        </td>
+
+                                        <td>
+                                            @enrolment.CategoryId
+                                        </td>
+
+                                        <td>
+                                            @enrolment.EnrolmentDate.ToString("dd MMM yyyy")
+                                        </td>
+
+                                        <td>
+
+                                            @{
+                                                string badgeClass =
+                                                    enrolment.EnrolmentStatus.Equals(
+                                                        "Confirmed",
+                                                        StringComparison.OrdinalIgnoreCase)
+                                                        ? "bg-success"
+                                                        : enrolment.EnrolmentStatus.Equals(
+                                                            "Pending",
+                                                            StringComparison.OrdinalIgnoreCase)
+                                                            ? "bg-warning text-dark"
+                                                            : "bg-secondary";
+                                            }
+
+                                            <span class="badge @badgeClass">
+                                                @enrolment.EnrolmentStatus
+                                            </span>
+
+                                        </td>
+
+                                    </tr>
+                                }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        No participants have enrolled in this event yet.
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+
+</div>
