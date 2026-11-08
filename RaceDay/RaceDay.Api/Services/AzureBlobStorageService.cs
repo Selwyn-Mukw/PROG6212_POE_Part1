@@ -19,12 +19,14 @@ namespace RaceDay.Api.Services
                 ?? throw new InvalidOperationException(
                     "Azure Blob Storage container name is missing.");
 
-            var blobServiceClient = new BlobServiceClient(connectionString);
+            var blobServiceClient =
+                new BlobServiceClient(connectionString);
 
             _containerClient =
                 blobServiceClient.GetBlobContainerClient(containerName);
         }
 
+        // Upload profile picture
         public async Task<string> UploadAsync(IFormFile file)
         {
             string extension = Path.GetExtension(file.FileName);
@@ -44,6 +46,24 @@ namespace RaceDay.Api.Services
                 });
 
             return blobName;
+        }
+
+        // Download profile picture
+        public async Task<(byte[] Content, string ContentType)>
+            DownloadAsync(string blobName)
+        {
+            BlobClient blobClient =
+                _containerClient.GetBlobClient(blobName);
+
+            var response = await blobClient.DownloadContentAsync();
+
+            byte[] content = response.Value.Content.ToArray();
+
+            string contentType =
+                response.Value.Details.ContentType
+                ?? "application/octet-stream";
+
+            return (content, contentType);
         }
     }
 }
