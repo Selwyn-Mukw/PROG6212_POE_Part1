@@ -1,13 +1,21 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using RaceDay.Mvc.Services;
 using RaceDay.Mvc.ViewModels;
 using RaceDay.contracts.DTOs;
-using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace RaceDay.Mvc.Controllers
 {
     public class OrganiserController : Controller
     {
+        private readonly RaceDayApiClient _api;
+
+        public OrganiserController(RaceDayApiClient api)
+        {
+            _api = api;
+        }
+
+        // Retrieve event types from the API
         private async Task<List<SelectListItem>> GetEventTypesAsync()
         {
             using var response = await _api.SendAsync(
@@ -19,19 +27,14 @@ namespace RaceDay.Mvc.Controllers
                 return new List<SelectListItem>();
             }
 
-            var eventTypes = await _api.ReadAsync<List<EventTypeVm>>(response);
+            var eventTypes =
+                await _api.ReadAsync<List<EventTypeVm>>(response);
 
             return eventTypes?.Select(type => new SelectListItem
             {
                 Value = type.EventTypeId.ToString(),
                 Text = type.EventTypeName
             }).ToList() ?? new List<SelectListItem>();
-        }
-        private readonly RaceDayApiClient _api;
-
-        public OrganiserController(RaceDayApiClient api)
-        {
-            _api = api;
         }
 
         // Check whether the logged-in user is an organiser
@@ -66,7 +69,8 @@ namespace RaceDay.Mvc.Controllers
             }
 
             using var response = await _api.SendAsync(
-                HttpMethod.Get, "api/Events");
+                HttpMethod.Get,
+                "api/Events");
 
             if (!response.IsSuccessStatusCode)
             {
@@ -74,7 +78,8 @@ namespace RaceDay.Mvc.Controllers
                 return View(new List<EventVm>());
             }
 
-            var events = await _api.ReadAsync<List<EventVm>>(response);
+            var events =
+                await _api.ReadAsync<List<EventVm>>(response);
 
             return View(events ?? new List<EventVm>());
         }
@@ -84,7 +89,9 @@ namespace RaceDay.Mvc.Controllers
         public async Task<IActionResult> CreateEvent()
         {
             if (!IsOrganiser())
+            {
                 return RedirectToAction("Login", "Auth");
+            }
 
             var model = new CreateEventVm
             {
@@ -127,7 +134,8 @@ namespace RaceDay.Mvc.Controllers
 
             if (!response.IsSuccessStatusCode)
             {
-                string error = await response.Content.ReadAsStringAsync();
+                string error =
+                    await response.Content.ReadAsStringAsync();
 
                 ViewBag.Error = string.IsNullOrWhiteSpace(error)
                     ? "Unable to create the event. Please try again."
@@ -138,6 +146,93 @@ namespace RaceDay.Mvc.Controllers
             }
 
             TempData["Success"] = "Event created successfully!";
+
+            return RedirectToAction("Events");
+        }
+
+        // ==========================================
+        // EDIT EVENT
+        // ==========================================
+
+        // Display the Edit Event form
+        [HttpGet]
+        public async Task<IActionResult> EditEvent(int id)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Get,
+                $"api/Events/{id}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                TempData["Error"] = "Unable to retrieve the selected event.";
+                return RedirectToAction("Events");
+            }
+
+            var model =
+                await _api.ReadAsync<EditEventVm>(response);
+
+            if (model == null)
+            {
+                TempData["Error"] = "Event details could not be loaded.";
+                return RedirectToAction("Events");
+            }
+
+            model.EventTypes = await GetEventTypesAsync();
+
+            return View(model);
+        }
+
+        // Submit updated event details to the API
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditEvent(EditEventVm model)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                model.EventTypes = await GetEventTypesAsync();
+                return View(model);
+            }
+
+            var eventDto = new UpdateEventDto
+            {
+                EventName = model.EventName,
+                EventDate = model.EventDate,
+                Location = model.Location,
+                Description = model.Description,
+                Distance = model.Distance,
+                EventTypeId = model.EventTypeId
+            };
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Put,
+                $"api/Events/{model.EventId}",
+                eventDto);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string error =
+                    await response.Content.ReadAsStringAsync();
+
+                ViewBag.Error = string.IsNullOrWhiteSpace(error)
+                    ? "Unable to update the event. Please try again."
+                    : error;
+
+                model.EventTypes = await GetEventTypesAsync();
+
+                return View(model);
+            }
+
+            TempData["Success"] = "Event updated successfully!";
 
             return RedirectToAction("Events");
         }
