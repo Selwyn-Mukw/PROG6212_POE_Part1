@@ -600,5 +600,56 @@ namespace RaceDay.Mvc.Controllers
                 "Categories",
                 new { eventId });
         }
+        // ==========================================
+        // ENROLMENT MANAGEMENT
+        // ==========================================
+
+        [HttpGet]
+        public async Task<IActionResult> Enrolments(int? eventId)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            var model = new EnrolmentManagementVm
+            {
+                Events = await GetOrganiserEventsAsync()
+            };
+
+            // Select the requested event or the first available event.
+            if (eventId.HasValue)
+            {
+                model.EventId = eventId.Value;
+            }
+            else if (model.Events.Any())
+            {
+                model.EventId = int.Parse(model.Events.First().Value);
+            }
+
+            // Retrieve enrolments for the selected event.
+            if (model.EventId > 0)
+            {
+                using var response = await _api.SendAsync(
+                    HttpMethod.Get,
+                    $"api/Enrolments/event/{model.EventId}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var enrolments =
+                        await _api.ReadAsync<List<EnrolmentDto>>(response);
+
+                    model.Enrolments =
+                        enrolments ?? new List<EnrolmentDto>();
+                }
+                else
+                {
+                    ViewBag.Error =
+                        "Unable to retrieve enrolments for this event.";
+                }
+            }
+
+            return View(model);
+        }
     }
 }
