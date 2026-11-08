@@ -1,0 +1,113 @@
+﻿@model RaceDay.Mvc.ViewModels.EditCategoryVm
+
+@{
+    ViewData["Title"] = "Edit Category";
+}
+
+<div class="container mt-4">
+
+    <h2>Edit Category</h2>
+    <p class="text-muted">Update the details of this event category.</p>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <form asp-controller="Organiser"
+          asp-action="EditCategory"
+          method="post">
+
+        @Html.AntiForgeryToken()
+
+        <input type="hidden" asp-for="CategoryId" />
+        <input type="hidden" asp-for="EventId" />
+
+        <div class="mb-3">
+            <label asp-for="CategoryName" class="form-label">
+                Category Name
+            </label>
+
+            <input asp-for="CategoryName" class="form-control" />
+
+            <span asp-validation-for="CategoryName"
+                  class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="CategoryType" class="form-label">
+                Category Type
+            </label>
+
+            <input asp-for="CategoryType" class="form-control" />
+
+            <span asp-validation-for="CategoryType"
+                  class="text-danger"></span>
+        </div>
+
+        <div class="row">
+
+            <div class="col-md-6 mb-3">
+                <label asp-for="MinimumAge" class="form-label">
+                    Minimum Age
+                </label>
+
+                <input asp-for="MinimumAge"
+                       type="number"
+                       class="form-control" />
+
+                <span asp-validation-for="MinimumAge"
+                      class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label asp-for="MaximumAge" class="form-label">
+                    Maximum Age
+                </label>
+
+                <input asp-for="MaximumAge"
+                       type="number"
+                       class="form-control" />
+
+                <span asp-validation-for="MaximumAge"
+                      class="text-danger"></span>
+            </div>
+
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="CategoryDistance" class="form-label">
+                Category Distance (KM)
+            </label>
+
+            <input asp-for="CategoryDistance"
+                   type="number"
+                   step="0.01"
+                   class="form-control" />
+
+            <span asp-validation-for="CategoryDistance"
+                  class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Save Changes
+        </button>
+
+        <a asp-controller="Organiser"
+           asp-action="Categories"
+           asp-route-eventId="@Model.EventId"
+           class="btn btn-secondary">
+            Cancel
+        </a>
+
+    </form>
+
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

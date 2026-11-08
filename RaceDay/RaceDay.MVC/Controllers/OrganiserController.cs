@@ -290,7 +290,7 @@ namespace RaceDay.Mvc.Controllers
         // CATEGORY MANAGEMENT
         // ==========================================
 
-        // Retrieve events belonging to the logged-in organiser
+        // Retrieve events belonging to the logged-in organiser.
         private async Task<List<SelectListItem>> GetOrganiserEventsAsync()
         {
             using var response = await _api.SendAsync(
@@ -312,7 +312,7 @@ namespace RaceDay.Mvc.Controllers
             }).ToList() ?? new List<SelectListItem>();
         }
 
-        // Retrieve categories belonging to a selected event
+        // Retrieve categories belonging to a selected event.
         private async Task<List<CategoryDto>> GetCategoriesAsync(int eventId)
         {
             using var response = await _api.SendAsync(
@@ -332,7 +332,7 @@ namespace RaceDay.Mvc.Controllers
                 .ToList() ?? new List<CategoryDto>();
         }
 
-        // Display Category Management page
+        // Display Category Management page.
         [HttpGet]
         public async Task<IActionResult> Categories(int? eventId)
         {
@@ -364,7 +364,7 @@ namespace RaceDay.Mvc.Controllers
             return View(model);
         }
 
-        // Create a new category
+        // Create a new category.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Categories(CategoryVm model)
@@ -438,6 +438,162 @@ namespace RaceDay.Mvc.Controllers
             return RedirectToAction(
                 "Categories",
                 new { eventId = model.EventId });
+        }
+
+        // ==========================================
+        // EDIT CATEGORY
+        // ==========================================
+
+        [HttpGet]
+        public async Task<IActionResult> EditCategory(int id)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Get,
+                $"api/Categories/{id}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                TempData["Error"] =
+                    "Unable to retrieve the selected category.";
+
+                return RedirectToAction("Categories");
+            }
+
+            var category =
+                await _api.ReadAsync<CategoryDto>(response);
+
+            if (category == null)
+            {
+                TempData["Error"] =
+                    "Category details could not be loaded.";
+
+                return RedirectToAction("Categories");
+            }
+
+            // Confirm the category belongs to one of this organiser's events.
+            var organiserEvents = await GetOrganiserEventsAsync();
+
+            bool ownsEvent = organiserEvents.Any(e =>
+                e.Value == category.EventId.ToString());
+
+            if (!ownsEvent)
+            {
+                TempData["Error"] =
+                    "You are not authorised to edit this category.";
+
+                return RedirectToAction("Categories");
+            }
+
+            var model = new EditCategoryVm
+            {
+                CategoryId = category.CategoryId,
+                EventId = category.EventId,
+                CategoryName = category.CategoryName,
+                CategoryType = category.CategoryType,
+                MinimumAge = category.MinimumAge,
+                MaximumAge = category.MaximumAge,
+                CategoryDistance = category.CategoryDistance
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditCategory(EditCategoryVm model)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            if (model.MinimumAge > model.MaximumAge)
+            {
+                ModelState.AddModelError(
+                    "MaximumAge",
+                    "Maximum age must be greater than or equal to minimum age.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var categoryDto = new UpdateCategoryDto
+            {
+                CategoryName = model.CategoryName,
+                CategoryType = model.CategoryType,
+                MinimumAge = model.MinimumAge,
+                MaximumAge = model.MaximumAge,
+                CategoryDistance = model.CategoryDistance
+            };
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Put,
+                $"api/Categories/{model.CategoryId}",
+                categoryDto);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string error =
+                    await response.Content.ReadAsStringAsync();
+
+                ViewBag.Error = string.IsNullOrWhiteSpace(error)
+                    ? "Unable to update the category."
+                    : error;
+
+                return View(model);
+            }
+
+            TempData["Success"] =
+                "Category updated successfully!";
+
+            return RedirectToAction(
+                "Categories",
+                new { eventId = model.EventId });
+        }
+
+        // ==========================================
+        // DELETE CATEGORY
+        // ==========================================
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteCategory(int id, int eventId)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Delete,
+                $"api/Categories/{id}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string error =
+                    await response.Content.ReadAsStringAsync();
+
+                TempData["Error"] =
+                    "Unable to delete category. " + error;
+
+                return RedirectToAction(
+                    "Categories",
+                    new { eventId });
+            }
+
+            TempData["Success"] =
+                "Category deleted successfully!";
+
+            return RedirectToAction(
+                "Categories",
+                new { eventId });
         }
     }
 }
