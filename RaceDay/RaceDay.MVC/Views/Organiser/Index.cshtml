@@ -5,64 +5,123 @@
 <div class="container mt-4">
 
     <div class="d-flex justify-content-between align-items-center mb-4">
+
         <div>
             <h2>Organiser Dashboard</h2>
+
             <p class="text-muted">
                 Welcome back, @ViewBag.DisplayName!
             </p>
         </div>
 
-        <form asp-controller="Auth" asp-action="Logout" method="post">
+        <form asp-controller="Auth"
+              asp-action="Logout"
+              method="post">
+
             <button type="submit" class="btn btn-outline-danger">
                 Logout
             </button>
+
         </form>
+
     </div>
 
     <div class="row">
 
+        <!-- Manage Events -->
         <div class="col-md-4 mb-3">
+
             <div class="card shadow-sm h-100">
+
                 <div class="card-body">
+
                     <h5 class="card-title">Manage Events</h5>
+
                     <p class="card-text">
                         Create, view and manage race events.
                     </p>
+
                     <a asp-controller="Organiser"
                        asp-action="Events"
                        class="btn btn-primary">
                         Manage Events
                     </a>
+
                 </div>
+
             </div>
+
         </div>
 
+        <!-- Manage Categories -->
         <div class="col-md-4 mb-3">
+
             <div class="card shadow-sm h-100">
+
                 <div class="card-body">
+
+                    <h5 class="card-title">Manage Categories</h5>
+
+                    <p class="card-text">
+                        Create and manage race categories for your events.
+                    </p>
+
+                    <a asp-controller="Organiser"
+                       asp-action="Categories"
+                       class="btn btn-primary">
+                        Manage Categories
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Manage Enrolments -->
+        <div class="col-md-4 mb-3">
+
+            <div class="card shadow-sm h-100">
+
+                <div class="card-body">
+
                     <h5 class="card-title">Manage Enrolments</h5>
+
                     <p class="card-text">
                         View participants enrolled in your events.
                     </p>
+
                     <a href="#" class="btn btn-primary">
                         View Enrolments
                     </a>
+
                 </div>
+
             </div>
+
         </div>
 
+        <!-- Manage Results -->
         <div class="col-md-4 mb-3">
+
             <div class="card shadow-sm h-100">
+
                 <div class="card-body">
+
                     <h5 class="card-title">Manage Results</h5>
+
                     <p class="card-text">
                         Manage and publish race results.
                     </p>
+
                     <a href="#" class="btn btn-primary">
                         Manage Results
                     </a>
+
                 </div>
+
             </div>
+
         </div>
 
     </div>

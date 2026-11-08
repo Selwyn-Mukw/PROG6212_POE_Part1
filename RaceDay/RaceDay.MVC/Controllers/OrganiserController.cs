@@ -15,7 +15,10 @@ namespace RaceDay.Mvc.Controllers
             _api = api;
         }
 
-        // Retrieve event types from the API
+        // ==========================================
+        // EVENT TYPES
+        // ==========================================
+
         private async Task<List<SelectListItem>> GetEventTypesAsync()
         {
             using var response = await _api.SendAsync(
@@ -37,7 +40,10 @@ namespace RaceDay.Mvc.Controllers
             }).ToList() ?? new List<SelectListItem>();
         }
 
-        // Check whether the logged-in user is an organiser
+        // ==========================================
+        // AUTHENTICATION CHECK
+        // ==========================================
+
         private bool IsOrganiser()
         {
             string? token = HttpContext.Session.GetString("JwtToken");
@@ -46,7 +52,10 @@ namespace RaceDay.Mvc.Controllers
             return !string.IsNullOrEmpty(token) && role == "Organiser";
         }
 
-        // Organiser dashboard
+        // ==========================================
+        // ORGANISER DASHBOARD
+        // ==========================================
+
         public IActionResult Index()
         {
             if (!IsOrganiser())
@@ -60,7 +69,10 @@ namespace RaceDay.Mvc.Controllers
             return View();
         }
 
-        // Display all events
+        // ==========================================
+        // VIEW EVENTS
+        // ==========================================
+
         public async Task<IActionResult> Events()
         {
             if (!IsOrganiser())
@@ -84,7 +96,10 @@ namespace RaceDay.Mvc.Controllers
             return View(events ?? new List<EventVm>());
         }
 
-        // Display the Create Event form
+        // ==========================================
+        // CREATE EVENT
+        // ==========================================
+
         [HttpGet]
         public async Task<IActionResult> CreateEvent()
         {
@@ -101,7 +116,6 @@ namespace RaceDay.Mvc.Controllers
             return View(model);
         }
 
-        // Submit a new event to the API
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateEvent(CreateEventVm model)
@@ -154,7 +168,6 @@ namespace RaceDay.Mvc.Controllers
         // EDIT EVENT
         // ==========================================
 
-        // Display the Edit Event form
         [HttpGet]
         public async Task<IActionResult> EditEvent(int id)
         {
@@ -169,7 +182,9 @@ namespace RaceDay.Mvc.Controllers
 
             if (!response.IsSuccessStatusCode)
             {
-                TempData["Error"] = "Unable to retrieve the selected event.";
+                TempData["Error"] =
+                    "Unable to retrieve the selected event.";
+
                 return RedirectToAction("Events");
             }
 
@@ -178,7 +193,9 @@ namespace RaceDay.Mvc.Controllers
 
             if (model == null)
             {
-                TempData["Error"] = "Event details could not be loaded.";
+                TempData["Error"] =
+                    "Event details could not be loaded.";
+
                 return RedirectToAction("Events");
             }
 
@@ -187,7 +204,6 @@ namespace RaceDay.Mvc.Controllers
             return View(model);
         }
 
-        // Submit updated event details to the API
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditEvent(EditEventVm model)
@@ -235,6 +251,193 @@ namespace RaceDay.Mvc.Controllers
             TempData["Success"] = "Event updated successfully!";
 
             return RedirectToAction("Events");
+        }
+
+        // ==========================================
+        // DELETE EVENT
+        // ==========================================
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Delete,
+                $"api/Events/{id}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string error =
+                    await response.Content.ReadAsStringAsync();
+
+                TempData["Error"] =
+                    "Unable to delete event. " + error;
+
+                return RedirectToAction("Events");
+            }
+
+            TempData["Success"] = "Event deleted successfully!";
+
+            return RedirectToAction("Events");
+        }
+
+        // ==========================================
+        // CATEGORY MANAGEMENT
+        // ==========================================
+
+        // Retrieve events belonging to the logged-in organiser
+        private async Task<List<SelectListItem>> GetOrganiserEventsAsync()
+        {
+            using var response = await _api.SendAsync(
+                HttpMethod.Get,
+                "api/Events/mine");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new List<SelectListItem>();
+            }
+
+            var events =
+                await _api.ReadAsync<List<EventVm>>(response);
+
+            return events?.Select(e => new SelectListItem
+            {
+                Value = e.EventId.ToString(),
+                Text = e.EventName
+            }).ToList() ?? new List<SelectListItem>();
+        }
+
+        // Retrieve categories belonging to a selected event
+        private async Task<List<CategoryDto>> GetCategoriesAsync(int eventId)
+        {
+            using var response = await _api.SendAsync(
+                HttpMethod.Get,
+                "api/Categories");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new List<CategoryDto>();
+            }
+
+            var categories =
+                await _api.ReadAsync<List<CategoryDto>>(response);
+
+            return categories?
+                .Where(c => c.EventId == eventId)
+                .ToList() ?? new List<CategoryDto>();
+        }
+
+        // Display Category Management page
+        [HttpGet]
+        public async Task<IActionResult> Categories(int? eventId)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            var model = new CategoryVm
+            {
+                Events = await GetOrganiserEventsAsync()
+            };
+
+            if (eventId.HasValue)
+            {
+                model.EventId = eventId.Value;
+            }
+            else if (model.Events.Any())
+            {
+                model.EventId = int.Parse(model.Events.First().Value);
+            }
+
+            if (model.EventId > 0)
+            {
+                model.Categories =
+                    await GetCategoriesAsync(model.EventId);
+            }
+
+            return View(model);
+        }
+
+        // Create a new category
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Categories(CategoryVm model)
+        {
+            if (!IsOrganiser())
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                model.Events = await GetOrganiserEventsAsync();
+
+                if (model.EventId > 0)
+                {
+                    model.Categories =
+                        await GetCategoriesAsync(model.EventId);
+                }
+
+                return View(model);
+            }
+
+            if (model.MinimumAge > model.MaximumAge)
+            {
+                ModelState.AddModelError(
+                    "MaximumAge",
+                    "Maximum age must be greater than or equal to minimum age.");
+
+                model.Events = await GetOrganiserEventsAsync();
+
+                model.Categories =
+                    await GetCategoriesAsync(model.EventId);
+
+                return View(model);
+            }
+
+            var categoryDto = new CreateCategoryDto
+            {
+                EventId = model.EventId,
+                CategoryName = model.CategoryName,
+                CategoryType = model.CategoryType,
+                MinimumAge = model.MinimumAge,
+                MaximumAge = model.MaximumAge,
+                CategoryDistance = model.CategoryDistance
+            };
+
+            using var response = await _api.SendAsync(
+                HttpMethod.Post,
+                "api/Categories",
+                categoryDto);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string error =
+                    await response.Content.ReadAsStringAsync();
+
+                ViewBag.Error = string.IsNullOrWhiteSpace(error)
+                    ? "Unable to create the category."
+                    : error;
+
+                model.Events = await GetOrganiserEventsAsync();
+
+                model.Categories =
+                    await GetCategoriesAsync(model.EventId);
+
+                return View(model);
+            }
+
+            TempData["Success"] = "Category created successfully!";
+
+            return RedirectToAction(
+                "Categories",
+                new { eventId = model.EventId });
         }
     }
 }

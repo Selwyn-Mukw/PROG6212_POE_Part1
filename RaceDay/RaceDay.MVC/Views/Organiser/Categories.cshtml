@@ -1,0 +1,247 @@
+﻿@model RaceDay.Mvc.ViewModels.CategoryVm
+
+@{
+    ViewData["Title"] = "Category Management";
+}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Category Management</h2>
+
+        <a asp-controller="Organiser"
+           asp-action="Index"
+           class="btn btn-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
+    <!-- Select Event -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Select Event</h5>
+        </div>
+
+        <div class="card-body">
+
+            <form asp-controller="Organiser"
+                  asp-action="Categories"
+                  method="get">
+
+                <div class="row align-items-end">
+
+                    <div class="col-md-8">
+                        <label class="form-label">
+                            Choose an Event
+                        </label>
+
+                        <select asp-for="EventId"
+                                class="form-select"
+                                asp-items="Model.Events"
+                                onchange="this.form.submit()">
+
+                            <option value="0">-- Select Event --</option>
+
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <button type="submit"
+                                class="btn btn-primary">
+                            View Categories
+                        </button>
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+    @if (Model.EventId > 0)
+    {
+        <!-- Create Category -->
+        <div class="card mb-4">
+
+            <div class="card-header">
+                <h5>Create New Category</h5>
+            </div>
+
+            <div class="card-body">
+
+                <form asp-controller="Organiser"
+                      asp-action="Categories"
+                      method="post">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden"
+                           asp-for="EventId" />
+
+                    <div asp-validation-summary="ModelOnly"
+                         class="text-danger mb-3"></div>
+
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="CategoryName"
+                                   class="form-label">
+                                Category Name
+                            </label>
+
+                            <input asp-for="CategoryName"
+                                   class="form-control"
+                                   placeholder="e.g. Senior 10K" />
+
+                            <span asp-validation-for="CategoryName"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="CategoryType"
+                                   class="form-label">
+                                Category Type
+                            </label>
+
+                            <input asp-for="CategoryType"
+                                   class="form-control"
+                                   placeholder="e.g. Senior, Junior, Open" />
+
+                            <span asp-validation-for="CategoryType"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="MinimumAge"
+                                   class="form-label">
+                                Minimum Age
+                            </label>
+
+                            <input asp-for="MinimumAge"
+                                   type="number"
+                                   class="form-control" />
+
+                            <span asp-validation-for="MinimumAge"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="MaximumAge"
+                                   class="form-label">
+                                Maximum Age
+                            </label>
+
+                            <input asp-for="MaximumAge"
+                                   type="number"
+                                   class="form-control" />
+
+                            <span asp-validation-for="MaximumAge"
+                                  class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="CategoryDistance"
+                                   class="form-label">
+                                Distance (km)
+                            </label>
+
+                            <input asp-for="CategoryDistance"
+                                   type="number"
+                                   step="0.01"
+                                   class="form-control" />
+
+                            <span asp-validation-for="CategoryDistance"
+                                  class="text-danger"></span>
+                        </div>
+
+                    </div>
+
+                    <button type="submit"
+                            class="btn btn-success">
+                        Create Category
+                    </button>
+
+                </form>
+
+            </div>
+        </div>
+
+        <!-- Existing Categories -->
+        <div class="card">
+
+            <div class="card-header">
+                <h5>Existing Categories</h5>
+            </div>
+
+            <div class="card-body">
+
+                @if (Model.Categories.Any())
+                {
+                    <div class="table-responsive">
+
+                        <table class="table table-bordered table-striped">
+
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Category Name</th>
+                                    <th>Type</th>
+                                    <th>Minimum Age</th>
+                                    <th>Maximum Age</th>
+                                    <th>Distance (km)</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+
+                                @foreach (var category in Model.Categories)
+                                {
+                                    <tr>
+                                        <td>@category.CategoryId</td>
+                                        <td>@category.CategoryName</td>
+                                        <td>@category.CategoryType</td>
+                                        <td>@category.MinimumAge</td>
+                                        <td>@category.MaximumAge</td>
+                                        <td>@category.CategoryDistance</td>
+                                    </tr>
+                                }
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        No categories have been created for this event yet.
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

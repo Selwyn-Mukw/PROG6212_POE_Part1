@@ -9,9 +9,18 @@
     <h2>Create New Event</h2>
     <p class="text-muted">Enter the details of the new race event.</p>
 
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">
+            @ViewBag.Error
+        </div>
+    }
+
     <form asp-controller="Organiser"
           asp-action="CreateEvent"
           method="post">
+
+        @Html.AntiForgeryToken()
 
         <div asp-validation-summary="ModelOnly"
              class="text-danger mb-3"></div>
@@ -92,15 +101,20 @@
 
         <!-- Event Type -->
         <div class="mb-3">
-            <label asp-for="EventTypeId" class="form-label">Event Type</label>
+            <label asp-for="EventTypeId" class="form-label">
+                Event Type
+            </label>
 
             <select asp-for="EventTypeId"
                     asp-items="Model.EventTypes"
                     class="form-select">
-                <option value="0">-- Select an event type --</option>
+
+                <option value="">-- Select an event type --</option>
+
             </select>
 
-            <span asp-validation-for="EventTypeId" class="text-danger"></span>
+            <span asp-validation-for="EventTypeId"
+                  class="text-danger"></span>
         </div>
 
         <!-- Buttons -->

@@ -75,6 +75,21 @@
                                class="btn btn-warning btn-sm">
                                 Edit
                             </a>
+
+                            <form asp-controller="Organiser"
+                                  asp-action="DeleteEvent"
+                                  asp-route-id="@item.EventId"
+                                  method="post"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Are you sure you want to delete this event?');">
+
+                                @Html.AntiForgeryToken()
+
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    Delete
+                                </button>
+
+                            </form>
                         </td>
                     </tr>
                 }

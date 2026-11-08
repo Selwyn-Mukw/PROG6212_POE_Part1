@@ -118,7 +118,7 @@ namespace RaceDay.Api.Controllers
         }
 
         // GET: api/Events/{id}
-        // Retrieves one event using its ID.
+        // Retrieves one event using its ID, including all editable details.
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetEventById(int id)
         {
@@ -135,7 +135,8 @@ namespace RaceDay.Api.Controllers
                 await _connection.OpenAsync();
 
                 const string sql = @"
-                    SELECT EventID, EventName, EventDate, Location
+                    SELECT EventID, EventTypeID, EventName, Description,
+                           EventDate, Location, Distance
                     FROM dbo.EVENT
                     WHERE EventID = @EventID;";
 
@@ -153,15 +154,20 @@ namespace RaceDay.Api.Controllers
                     });
                 }
 
-                var eventDto = new EventDto
+                var eventDetails = new
                 {
                     EventId = reader.GetInt32(0),
-                    EventName = reader.GetString(1),
-                    EventDate = reader.GetDateTime(2),
-                    Location = reader.GetString(3)
+                    EventTypeId = reader.GetInt32(1),
+                    EventName = reader.GetString(2),
+                    Description = reader.IsDBNull(3)
+                        ? null
+                        : reader.GetString(3),
+                    EventDate = reader.GetDateTime(4),
+                    Location = reader.GetString(5),
+                    Distance = reader.GetDecimal(6)
                 };
 
-                return Ok(eventDto);
+                return Ok(eventDetails);
             }
             catch (SqlException)
             {
