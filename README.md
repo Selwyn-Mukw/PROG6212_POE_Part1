@@ -201,3 +201,233 @@ passed, 0 failed, 0 skipped.
 
 Youtube link : https://youtu.be/I0hsUAs0uP8
 
+PART 3 – ASP.NET CORE MVC APPLICATION
+
+11. Part 3 Overview
+
+Part 3 extends the RaceDay system by introducing an ASP.NET Core MVC application.
+
+The MVC application communicates with the RaceDay API and provides separate interfaces for Organisers and Participants.
+
+The application uses session management to maintain authenticated user information and JWT tokens when communicating with the API.
+
+12. Organiser Interface
+
+The Organiser dashboard provides access to event administration functionality.
+
+Implemented functionality includes:
+
+Organiser dashboard.
+
+Event creation and management.
+
+Event type selection.
+
+Event category management.
+
+Participant enrolment management.
+
+Race result management.
+
+Event banner uploads.
+
+Organisers can capture finishing times and positions for enrolled participants.
+
+13. Participant Interface
+
+The Participant dashboard provides access to race participation functionality.
+
+Implemented functionality includes:
+
+Participant dashboard.
+
+Browse upcoming events.
+
+Search events by name and location.
+
+View event details.
+
+View available race categories.
+
+Enrol in events.
+
+View personal enrolments.
+
+Cancel enrolments.
+
+View personal race results.
+
+Update profile information.
+
+Upload profile pictures.
+
+Participants can view their recorded finishing times and positions once results have been captured by an Organiser.
+
+14. Azure Blob Storage Integration
+
+Azure Blob Storage is used to store image files uploaded through the RaceDay application.
+
+The integration supports:
+
+Participant profile pictures.
+
+Event banner images.
+
+The upload process follows this architecture:
+
+The user selects an image through the MVC interface.
+
+The MVC application sends the image to the RaceDay API.
+
+The API processes the uploaded file.
+
+The API uploads the image to Azure Blob Storage.
+
+The associated image reference is stored in the database.
+
+The MVC application retrieves and displays the image.
+
+The MVC application communicates with Azure through the API rather than directly accessing Azure Blob Storage.
+
+Azure connection strings and other sensitive configuration values must be stored securely using local development secrets or suitable environment configuration.
+
+They must not be committed to GitHub.
+
+PART 4 – DOCKER CONTAINERISATION
+
+15. Docker Overview
+
+Docker is used to containerise the RaceDay MVC application.
+
+The application is built into a Docker image and executed inside a Docker container.
+
+The MVC application communicates with the RaceDay API running on the host machine during the local Docker demonstration.
+
+Docker Configuration
+
+The project contains a Dockerfile located at:
+
+RaceDay.MVC/Dockerfile
+
+The Docker image is named:
+
+raceday-mvc:part3
+
+The MVC application runs inside the container on port 8080.
+
+The API runs on the host machine on port 5000.
+
+16. Running RaceDay with Docker
+
+Prerequisites
+
+Before running the application, ensure that the following are installed:
+
+Docker Desktop.
+
+.NET 8 SDK.
+
+Microsoft SQL Server.
+
+Visual Studio.
+
+Step 1 – Start the RaceDay API
+
+Open PowerShell in the RaceDay solution directory.
+
+Run:
+
+dotnet run --project RaceDay.Api --urls http://0.0.0.0:5000
+
+Keep the API running while using the Docker container.
+
+Step 2 – Build the Docker Image
+
+Open another PowerShell window in the RaceDay solution directory.
+
+Run:
+
+docker build -f RaceDay.MVC/Dockerfile -t raceday-mvc:part3 .
+
+This builds the MVC application into a Docker image.
+
+Step 3 – Start the Docker Container
+
+Run:
+
+docker run -d --name raceday-mvc -p 8080:8080 -e ApiSettings__BaseUrl=http://host.docker.internal:5000/ raceday-mvc:part3
+
+The environment variable configures the MVC application to communicate with the API running on the Windows host.
+
+Step 4 – Verify the Container
+
+Run:
+
+docker ps
+
+The RaceDay MVC container should appear with an Up status.
+
+To view the container logs:
+
+docker logs raceday-mvc
+
+Step 5 – Access the Application
+
+Open a browser and navigate to:
+
+http://localhost:8080
+
+The RaceDay login page should appear.
+
+Users can log in using their Organiser or Participant accounts.
+
+Docker Management Commands
+
+Stop the container:
+
+docker stop raceday-mvc
+
+Remove the container:
+
+docker rm raceday-mvc
+
+View available images:
+
+docker images
+
+View running containers:
+
+docker ps
+
+PART 5 – CI/CD AND GITHUB
+
+17. GitHub Actions
+
+GitHub Actions is used for automated repository checks.
+
+The existing Part 1 workflow is located at:
+
+.github/workflows/part1-ci.yml
+
+The workflow checks that the required Part 1 documentation files are present in the repository.
+
+The workflow runs automatically when changes are pushed to GitHub, according to its configured triggers.
+
+Additional build and test automation should be verified against the final workflow configuration.
+
+18. Version Control
+
+Git and GitHub are used to manage the development of the RaceDay application.
+
+The repository contains the project source code, database documentation, API implementation, MVC application, automated tests and Docker configuration.
+
+Meaningful commits are used to track development progress and changes.
+
+PART 6 – PROJECT VIDEOS AND EVIDENCE
+
+19. Video Demonstrations
+
+20. CI/CD Evidence
+21. Automated Test evidence
+
+
