@@ -426,6 +426,7 @@ Meaningful commits are used to track development progress and changes.
 PART 6 – PROJECT VIDEOS AND EVIDENCE
 
 19. Video Demonstrations
+    https://youtu.be/gMWKY2o-7w8
 
 20. CI/CD Evidence
     <img width="1880" height="877" alt="image" src="https://github.com/user-attachments/assets/0ea83279-7ced-4eef-86e8-353bf0a56ff7" />
@@ -433,6 +434,6 @@ PART 6 – PROJECT VIDEOS AND EVIDENCE
     <img width="1865" height="772" alt="image" src="https://github.com/user-attachments/assets/10f31d90-2e8f-4444-b505-2f29c56d5ea0" />
 
 
-22. Automated Test evidence
+
 
 
