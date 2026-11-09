@@ -1,42 +1,35 @@
-name: RaceDay API Build and Unit Tests
+name: RaceDay CI - Part 1, 2 and 3
 
 on:
   push:
   pull_request:
 
 jobs:
-  validate-part1:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check docs folder
-        run: test -d docs
+      - name: Check Part 1 documentation
+        run: |
+          test -d docs
+          test -f docs/RaceDay_ERD.pdf
+          test -f docs/RaceDay_API_Endpoint_Plan.pdf
+          test -f docs/RaceDay_Database.sql
+          test -f README.md
 
-      - name: Check ERD
-        run: test -f docs/RaceDay_ERD.pdf
-
-      - name: Check API Endpoint Plan
-        run: test -f docs/RaceDay_API_Endpoint_Plan.pdf
-
-      - name: Check SQL Script
-        run: test -f docs/RaceDay_Database.sql
-
-      - name: Check README
-        run: test -f README.md
-
-      - name: Set up .NET
+      - name: Set up .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '8.0.x'
 
       - name: Restore dependencies
         run: dotnet restore RaceDay/RaceDay.slnx
 
-      - name: Build solution
+      - name: Build complete solution
         run: dotnet build RaceDay/RaceDay.slnx --configuration Release --no-restore
 
-      - name: Run unit tests
-        run: dotnet test RaceDay/RaceDay.slnx --configuration Release --no-build --verbosity normal
+      - name: Run API automated tests
+        run: dotnet test RaceDay/RaceDay.API.Tests/RaceDay.API.Tests.csproj --configuration Release --no-build --verbosity normal

@@ -6,21 +6,25 @@ const string connectionString =
 
 var passwordHasher = new PasswordHasher<string>();
 
-Console.WriteLine("RaceDay Organiser Password Reset");
-Console.WriteLine("--------------------------------");
+Console.WriteLine("RaceDay Participant Password Reset");
+Console.WriteLine("-----------------------------------");
 
-Console.Write("Enter the organiser's email address: ");
-string email = Console.ReadLine()?.Trim() ?? "";
+Console.Write("Enter Participant ID: ");
+
+if (!int.TryParse(Console.ReadLine(), out int participantId))
+{
+    Console.WriteLine("Invalid Participant ID.");
+    return;
+}
 
 Console.Write("Enter a new password: ");
 string newPassword = Console.ReadLine() ?? "";
 
-if (string.IsNullOrWhiteSpace(email) ||
-    string.IsNullOrWhiteSpace(newPassword) ||
+if (string.IsNullOrWhiteSpace(newPassword) ||
     newPassword.Length < 8)
 {
     Console.WriteLine(
-        "Email and password are required. Password must have at least 8 characters.");
+        "Password must contain at least 8 characters.");
     return;
 }
 
@@ -31,27 +35,30 @@ try
     await connection.OpenAsync();
 
     const string selectSql = @"
-        SELECT UserID
+        SELECT Email
         FROM dbo.[USER]
-        WHERE Email = @Email
+        WHERE UserID = @UserID
           AND Role = @Role;";
 
     using var selectCommand = new SqlCommand(
         selectSql, connection);
 
-    selectCommand.Parameters.AddWithValue("@Email", email);
-    selectCommand.Parameters.AddWithValue("@Role", "Organiser");
+    selectCommand.Parameters.AddWithValue(
+        "@UserID", participantId);
+
+    selectCommand.Parameters.AddWithValue(
+        "@Role", "Participant");
 
     object? result = await selectCommand.ExecuteScalarAsync();
 
     if (result == null || result == DBNull.Value)
     {
         Console.WriteLine(
-            "No organiser account was found with that email address.");
+            "No participant account was found with that ID.");
         return;
     }
 
-    int userId = Convert.ToInt32(result);
+    string email = Convert.ToString(result)!;
 
     string passwordHash =
         passwordHasher.HashPassword(email, newPassword);
@@ -69,17 +76,17 @@ try
         "@PasswordHash", passwordHash);
 
     updateCommand.Parameters.AddWithValue(
-        "@UserID", userId);
+        "@UserID", participantId);
 
     updateCommand.Parameters.AddWithValue(
-        "@Role", "Organiser");
+        "@Role", "Participant");
 
     int rowsUpdated = await updateCommand.ExecuteNonQueryAsync();
 
     if (rowsUpdated == 1)
     {
         Console.WriteLine(
-            "Password reset successfully.");
+            $"Password reset successfully for Participant ID {participantId}.");
     }
     else
     {

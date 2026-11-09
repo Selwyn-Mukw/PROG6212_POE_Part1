@@ -28,6 +28,13 @@ namespace RaceDay.Mvc.Controllers
 
             if (!response.IsSuccessStatusCode)
             {
+                string error = await response.Content.ReadAsStringAsync();
+
+                Console.WriteLine(
+                    $"EVENT TYPES ERROR: Status {(int)response.StatusCode} - {response.StatusCode}");
+
+                Console.WriteLine($"ERROR DETAILS: {error}");
+
                 return new List<SelectListItem>();
             }
 
