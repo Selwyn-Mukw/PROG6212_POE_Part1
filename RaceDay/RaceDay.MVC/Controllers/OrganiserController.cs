@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using RaceDay.Mvc.Services;
 using RaceDay.Mvc.ViewModels;
 using RaceDay.contracts.DTOs;
+using System.Text.Json;
 
 namespace RaceDay.Mvc.Controllers
 {
@@ -118,51 +119,7 @@ namespace RaceDay.Mvc.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateEvent(CreateEventVm model)
-        {
-            if (!IsOrganiser())
-            {
-                return RedirectToAction("Login", "Auth");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                model.EventTypes = await GetEventTypesAsync();
-                return View(model);
-            }
-
-            var eventDto = new CreateEventDto
-            {
-                EventName = model.EventName,
-                EventDate = model.EventDate,
-                Location = model.Location,
-                Description = model.Description,
-                Distance = model.Distance,
-                EventTypeId = model.EventTypeId
-            };
-
-            using var response = await _api.SendAsync(
-                HttpMethod.Post,
-                "api/Events",
-                eventDto);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                string error =
-                    await response.Content.ReadAsStringAsync();
-
-                ViewBag.Error = string.IsNullOrWhiteSpace(error)
-                    ? "Unable to create the event. Please try again."
-                    : error;
-
-                model.EventTypes = await GetEventTypesAsync();
-                return View(model);
-            }
-
-            TempData["Success"] = "Event created successfully!";
-
-            return RedirectToAction("Events");
-        }
+       
 
         // ==========================================
         // EDIT EVENT
@@ -564,41 +521,131 @@ namespace RaceDay.Mvc.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteCategory(int id, int eventId)
+        public async Task<IActionResult> CreateEvent(CreateEventVm model)
         {
             if (!IsOrganiser())
             {
                 return RedirectToAction("Login", "Auth");
             }
 
+            // Validate the selected banner image.
+            if (model.BannerImage != null)
+            {
+                if (model.BannerImage.Length > 5 * 1024 * 1024)
+                {
+                    ModelState.AddModelError(
+                        "BannerImage",
+                        "The banner image cannot exceed 5 MB.");
+                }
+
+                string[] allowedTypes =
+                {
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+        };
+
+                if (!allowedTypes.Contains(
+                    model.BannerImage.ContentType,
+                    StringComparer.OrdinalIgnoreCase))
+                {
+                    ModelState.AddModelError(
+                        "BannerImage",
+                        "Only JPG, PNG and WebP images are allowed.");
+                }
+            }
+
+            if (!ModelState.IsValid)
+            {
+                model.EventTypes = await GetEventTypesAsync();
+                return View(model);
+            }
+
+            // Prepare the event information.
+            var eventDto = new CreateEventDto
+            {
+                EventName = model.EventName,
+                EventDate = model.EventDate,
+                Location = model.Location,
+                Description = model.Description,
+                Distance = model.Distance,
+                EventTypeId = model.EventTypeId
+            };
+
+            // Step 1: Create the event through the API.
             using var response = await _api.SendAsync(
-                HttpMethod.Delete,
-                $"api/Categories/{id}");
+                HttpMethod.Post,
+                "api/Events",
+                eventDto);
 
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
-                {
-                    TempData["Error"] =
-                        "This category cannot be deleted because participants are already enrolled in it.";
-                }
-                else
-                {
-                    TempData["Error"] =
-                        "Unable to delete this category. Please try again.";
-                }
+                string error =
+                    await response.Content.ReadAsStringAsync();
 
-                return RedirectToAction(
-                    "Categories",
-                    new { eventId });
+                ViewBag.Error = string.IsNullOrWhiteSpace(error)
+                    ? "Unable to create the event. Please try again."
+                    : error;
+
+                model.EventTypes = await GetEventTypesAsync();
+                return View(model);
             }
 
-            TempData["Success"] =
-                "Category deleted successfully!";
+            // Step 2: Retrieve the newly created Event ID.
+            string responseJson =
+                await response.Content.ReadAsStringAsync();
 
-            return RedirectToAction(
-                "Categories",
-                new { eventId });
+            int eventId;
+
+            try
+            {
+                using var json = JsonDocument.Parse(responseJson);
+
+                if (!json.RootElement.TryGetProperty(
+                    "eventId", out var eventIdProperty))
+                {
+                    TempData["Error"] =
+                        "Event was created, but its ID could not be retrieved.";
+
+                    return RedirectToAction("Events");
+                }
+
+                eventId = eventIdProperty.GetInt32();
+            }
+            catch (JsonException)
+            {
+                TempData["Error"] =
+                    "Event was created, but its details could not be read.";
+
+                return RedirectToAction("Events");
+            }
+
+            // Step 3: Upload the banner if one was selected.
+            if (model.BannerImage != null &&
+                model.BannerImage.Length > 0)
+            {
+                using var bannerResponse = await _api.UploadFileAsync(
+                    $"api/Events/{eventId}/banner",
+                    model.BannerImage);
+
+                if (!bannerResponse.IsSuccessStatusCode)
+                {
+                    string uploadError =
+                        await bannerResponse.Content.ReadAsStringAsync();
+
+                    TempData["Error"] =
+                        "Your event was created successfully, but the banner upload failed. " +
+                        uploadError;
+
+                    return RedirectToAction("Events");
+                }
+            }
+
+            // Step 4: Confirm success.
+            TempData["Success"] =
+                "Event created successfully and banner uploaded!";
+
+            return RedirectToAction("Events");
         }
         // ==========================================
         // ENROLMENT MANAGEMENT

@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Security.Claims;
 using RaceDay.contracts.DTOs;
+using RaceDay.Api.Services;
 
 namespace RaceDay.Api.Controllers
 {
@@ -12,10 +13,14 @@ namespace RaceDay.Api.Controllers
     public class EventsController : ControllerBase
     {
         private readonly SqlConnection _connection;
+        private readonly AzureBlobStorageService _blobStorage;
 
-        public EventsController(SqlConnection connection)
+        public EventsController(
+            SqlConnection connection,
+            AzureBlobStorageService blobStorage)
         {
             _connection = connection;
+            _blobStorage = blobStorage;
         }
 
         // GET: api/Events/types
@@ -79,7 +84,7 @@ namespace RaceDay.Api.Controllers
                 await _connection.OpenAsync();
 
                 const string sql = @"
-                    SELECT EventID, EventName, EventDate, Location
+                    SELECT EventID, EventName, EventDate, Location, BannerImageURL
                     FROM dbo.EVENT
                     ORDER BY EventDate;";
 
@@ -93,7 +98,10 @@ namespace RaceDay.Api.Controllers
                         EventId = reader.GetInt32(0),
                         EventName = reader.GetString(1),
                         EventDate = reader.GetDateTime(2),
-                        Location = reader.GetString(3)
+                        Location = reader.GetString(3),
+                        BannerImageURL = reader.IsDBNull(4)
+                            ? null
+                            : reader.GetString(4)
                     });
                 }
 
@@ -136,7 +144,7 @@ namespace RaceDay.Api.Controllers
 
                 const string sql = @"
                     SELECT EventID, EventTypeID, EventName, Description,
-                           EventDate, Location, Distance
+                           EventDate, Location, Distance, BannerImageURL
                     FROM dbo.EVENT
                     WHERE EventID = @EventID;";
 
@@ -164,7 +172,10 @@ namespace RaceDay.Api.Controllers
                         : reader.GetString(3),
                     EventDate = reader.GetDateTime(4),
                     Location = reader.GetString(5),
-                    Distance = reader.GetDecimal(6)
+                    Distance = reader.GetDecimal(6),
+                    BannerImageURL = reader.IsDBNull(7)
+                        ? null
+                        : reader.GetString(7)
                 };
 
                 return Ok(eventDetails);
@@ -212,7 +223,7 @@ namespace RaceDay.Api.Controllers
                 await _connection.OpenAsync();
 
                 const string sql = @"
-            SELECT EventID, EventName, EventDate, Location
+            SELECT EventID, EventName, EventDate, Location , BannerImageURL
             FROM dbo.EVENT
             WHERE OrganiserID = @OrganiserID
             ORDER BY EventDate;";
@@ -231,7 +242,10 @@ namespace RaceDay.Api.Controllers
                         EventId = reader.GetInt32(0),
                         EventName = reader.GetString(1),
                         EventDate = reader.GetDateTime(2),
-                        Location = reader.GetString(3)
+                        Location = reader.GetString(3),
+                        BannerImageURL = reader.IsDBNull(4)
+                            ? null
+                            : reader.GetString(4)
                     });
                 }
 
@@ -421,6 +435,293 @@ namespace RaceDay.Api.Controllers
                 }
             }
         }
+
+        // POST: api/Events/{id}/banner
+        // Uploads or replaces an event banner in Azure Blob Storage.
+        [HttpPost("{id:int}/banner")]
+        [Authorize(Roles = "Organiser")]
+        [Consumes("multipart/form-data")]
+        [RequestSizeLimit(5 * 1024 * 1024)]
+        public async Task<IActionResult> UploadEventBanner(
+            int id,
+            IFormFile? file)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
+
+            // Identify the authenticated organiser.
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("sub")
+                ?? User.FindFirst("userId");
+
+            if (userIdClaim == null ||
+                !int.TryParse(userIdClaim.Value, out int organiserId) ||
+                organiserId <= 0)
+            {
+                return Unauthorized(new
+                {
+                    message = "Unable to identify the authenticated organiser."
+                });
+            }
+
+            // Validate the uploaded file.
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Please select an image to upload."
+                });
+            }
+
+            const long maxFileSize = 5 * 1024 * 1024;
+
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest(new
+                {
+                    message = "The banner image cannot exceed 5 MB."
+                });
+            }
+
+            string[] allowedContentTypes =
+            {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
+
+            if (!allowedContentTypes.Contains(
+                file.ContentType,
+                StringComparer.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    message = "Only JPG, PNG and WebP images are allowed."
+                });
+            }
+
+            string? oldBannerName = null;
+            string? newBannerName = null;
+            bool databaseUpdated = false;
+
+            try
+            {
+                // Check that the event belongs to this organiser.
+                await _connection.OpenAsync();
+
+                const string checkEventSql = @"
+            SELECT BannerImageURL
+            FROM dbo.EVENT
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using (var command = new SqlCommand(
+                    checkEventSql, _connection))
+                {
+                    command.Parameters.Add("@EventID", SqlDbType.Int)
+                        .Value = id;
+
+                    command.Parameters.Add("@OrganiserID", SqlDbType.Int)
+                        .Value = organiserId;
+
+                    using var reader = await command.ExecuteReaderAsync();
+
+                    if (!await reader.ReadAsync())
+                    {
+                        return NotFound(new
+                        {
+                            message = "The event was not found or you are not its organiser."
+                        });
+                    }
+
+                    oldBannerName = reader.IsDBNull(0)
+                        ? null
+                        : reader.GetString(0);
+                }
+
+                await _connection.CloseAsync();
+
+                // Upload the new banner to Azure.
+                newBannerName =
+                    await _blobStorage.UploadEventBannerAsync(file);
+
+                // Save the new banner filename in the database.
+                await _connection.OpenAsync();
+
+                const string updateSql = @"
+            UPDATE dbo.EVENT
+            SET BannerImageURL = @BannerImageURL
+            WHERE EventID = @EventID
+              AND OrganiserID = @OrganiserID;";
+
+                using (var updateCommand = new SqlCommand(
+                    updateSql, _connection))
+                {
+                    updateCommand.Parameters
+                        .Add("@BannerImageURL", SqlDbType.VarChar, 255)
+                        .Value = newBannerName;
+
+                    updateCommand.Parameters
+                        .Add("@EventID", SqlDbType.Int)
+                        .Value = id;
+
+                    updateCommand.Parameters
+                        .Add("@OrganiserID", SqlDbType.Int)
+                        .Value = organiserId;
+
+                    int rowsAffected =
+                        await updateCommand.ExecuteNonQueryAsync();
+
+                    if (rowsAffected == 0)
+                    {
+                        return NotFound(new
+                        {
+                            message = "The event could not be updated."
+                        });
+                    }
+
+                    databaseUpdated = true;
+                }
+
+                await _connection.CloseAsync();
+
+                // Delete the previous banner after successful replacement.
+                if (!string.IsNullOrWhiteSpace(oldBannerName))
+                {
+                    try
+                    {
+                        await _blobStorage.DeleteEventBannerAsync(
+                            oldBannerName);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"Previous event banner could not be deleted: {ex.Message}");
+                    }
+                }
+
+                return Ok(new
+                {
+                    message = "Event banner uploaded successfully.",
+                    eventId = id,
+                    bannerImageURL = newBannerName
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"Event banner upload failed: {ex.Message}");
+
+                // Remove the newly uploaded file if the database update failed.
+                if (!databaseUpdated &&
+                    !string.IsNullOrWhiteSpace(newBannerName))
+                {
+                    try
+                    {
+                        await _blobStorage.DeleteEventBannerAsync(
+                            newBannerName);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        Console.WriteLine(
+                            $"New banner cleanup failed: {cleanupException.Message}");
+                    }
+                }
+
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "An error occurred while uploading the event banner."
+                    });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+        }
+
+        // GET: api/Events/{id}/banner
+        // Retrieves an event banner from Azure Blob Storage.
+        [HttpGet("{id:int}/banner")]
+        public async Task<IActionResult> GetEventBanner(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Event ID must be greater than zero."
+                });
+            }
+
+            string? bannerName = null;
+
+            try
+            {
+                await _connection.OpenAsync();
+
+                const string sql = @"
+            SELECT BannerImageURL
+            FROM dbo.EVENT
+            WHERE EventID = @EventID;";
+
+                using var command = new SqlCommand(sql, _connection);
+
+                command.Parameters.Add("@EventID", SqlDbType.Int).Value = id;
+
+                var result = await command.ExecuteScalarAsync();
+
+                if (result != null && result != DBNull.Value)
+                {
+                    bannerName = result.ToString();
+                }
+            }
+            catch (SqlException)
+            {
+                return StatusCode(500, new
+                {
+                    message = "A database error occurred while retrieving the event banner."
+                });
+            }
+            finally
+            {
+                if (_connection.State != ConnectionState.Closed)
+                {
+                    await _connection.CloseAsync();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(bannerName))
+            {
+                return NotFound(new
+                {
+                    message = "No banner image was found for this event."
+                });
+            }
+
+            try
+            {
+                var image = await _blobStorage.DownloadEventBannerAsync(bannerName);
+
+                return File(image.Content, image.ContentType);
+            }
+            catch (Exception)
+            {
+                return NotFound(new
+                {
+                    message = "The event banner could not be found in storage."
+                });
+            }
+        }
+
         // PUT: api/Events/{id}
         // Updates an existing event.
         [HttpPut("{id:int}")]

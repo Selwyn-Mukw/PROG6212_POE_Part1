@@ -1,10 +1,14 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Http;
 
 namespace RaceDay.Mvc.ViewModels
 {
     public class CreateEventVm
     {
+
+        public IFormFile? BannerImage { get; set; }
+
         [Required]
         [StringLength(100, MinimumLength = 3)]
         public string EventName { get; set; } = string.Empty;

@@ -18,7 +18,8 @@
 
     <form asp-controller="Organiser"
           asp-action="CreateEvent"
-          method="post">
+          method="post"
+          enctype="multipart/form-data">
 
         @Html.AntiForgeryToken()
 
@@ -117,6 +118,22 @@
                   class="text-danger"></span>
         </div>
 
+        <!-- Event Banner -->
+        <div class="mb-4">
+            <label asp-for="BannerImage" class="form-label">
+                Event Banner Image
+            </label>
+
+            <input asp-for="BannerImage"
+                   type="file"
+                   class="form-control"
+                   accept=".jpg,.jpeg,.png,.webp" />
+
+            <small class="text-muted">
+                Upload a JPG, PNG or WebP image. Maximum size: 5 MB.
+            </small>
+        </div>
+
         <!-- Buttons -->
         <button type="submit" class="btn btn-primary">
             Create Event
@@ -133,7 +150,5 @@
 </div>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    <partial name="_ValidationScriptsPartial" />
 }
