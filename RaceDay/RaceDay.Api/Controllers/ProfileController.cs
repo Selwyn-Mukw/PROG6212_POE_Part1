@@ -45,6 +45,7 @@ namespace RaceDay.Api.Controllers
                     WHERE UserID = @UserID;";
 
                 using var command = new SqlCommand(sql, _connection);
+
                 command.Parameters.AddWithValue("@UserID", userId);
 
                 using var reader = await command.ExecuteReaderAsync();
@@ -58,9 +59,11 @@ namespace RaceDay.Api.Controllers
                     firstName = reader.GetString(1),
                     lastName = reader.GetString(2),
                     email = reader.GetString(3),
-                    phoneNumber = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    phoneNumber = reader.IsDBNull(4)
+                        ? null : reader.GetString(4),
                     role = reader.GetString(5),
-                    profilePictureURL = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    profilePictureURL = reader.IsDBNull(6)
+                        ? null : reader.GetString(6),
                     createdAt = reader.GetDateTime(7)
                 });
             }
@@ -107,8 +110,11 @@ namespace RaceDay.Api.Controllers
 
                 using var command = new SqlCommand(sql, _connection);
 
-                command.Parameters.AddWithValue("@FirstName", request.FirstName);
-                command.Parameters.AddWithValue("@LastName", request.LastName);
+                command.Parameters.AddWithValue(
+                    "@FirstName", request.FirstName);
+
+                command.Parameters.AddWithValue(
+                    "@LastName", request.LastName);
 
                 command.Parameters.AddWithValue(
                     "@PhoneNumber",
@@ -168,39 +174,122 @@ namespace RaceDay.Api.Controllers
             };
 
             if (!allowedTypes.Contains(file.ContentType))
-                return BadRequest("Only JPG, PNG and WEBP images are allowed.");
+                return BadRequest(
+                    "Only JPG, PNG and WEBP images are allowed.");
+
+            string? newBlobName = null;
+            string? oldBlobName = null;
 
             try
             {
-                string blobName = await _blobStorage.UploadAsync(file);
+                // STEP 1: Retrieve the existing picture filename
 
                 await _connection.OpenAsync();
 
-                const string sql = @"
+                const string selectSql = @"
+                    SELECT ProfilePictureURL
+                    FROM dbo.[USER]
+                    WHERE UserID = @UserID;";
+
+                using (var selectCommand =
+                    new SqlCommand(selectSql, _connection))
+                {
+                    selectCommand.Parameters.AddWithValue(
+                        "@UserID", userId);
+
+                    var result =
+                        await selectCommand.ExecuteScalarAsync();
+
+                    if (result == null)
+                        return NotFound("Profile not found.");
+
+                    oldBlobName = result == DBNull.Value
+                        ? null
+                        : result.ToString();
+                }
+
+                await _connection.CloseAsync();
+
+                // STEP 2: Upload the new picture to Azure
+
+                newBlobName = await _blobStorage.UploadAsync(file);
+
+                // STEP 3: Update SQL Server with the new filename
+
+                await _connection.OpenAsync();
+
+                const string updateSql = @"
                     UPDATE dbo.[USER]
                     SET ProfilePictureURL = @ProfilePictureURL
                     WHERE UserID = @UserID;";
 
-                using var command = new SqlCommand(sql, _connection);
+                int rowsUpdated;
 
-                command.Parameters.AddWithValue(
-                    "@ProfilePictureURL", blobName);
+                using (var updateCommand =
+                    new SqlCommand(updateSql, _connection))
+                {
+                    updateCommand.Parameters.AddWithValue(
+                        "@ProfilePictureURL", newBlobName);
 
-                command.Parameters.AddWithValue("@UserID", userId);
+                    updateCommand.Parameters.AddWithValue(
+                        "@UserID", userId);
 
-                int rowsUpdated = await command.ExecuteNonQueryAsync();
+                    rowsUpdated =
+                        await updateCommand.ExecuteNonQueryAsync();
+                }
+
+                await _connection.CloseAsync();
 
                 if (rowsUpdated == 0)
+                {
+                    await _blobStorage.DeleteAsync(newBlobName);
+
+                    newBlobName = null;
+
                     return NotFound("Profile not found.");
+                }
+
+                // STEP 4: Delete the previous picture from Azure
+
+                if (!string.IsNullOrWhiteSpace(oldBlobName))
+                {
+                    try
+                    {
+                        await _blobStorage.DeleteAsync(oldBlobName);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"OLD PROFILE PICTURE DELETION FAILED: {ex}");
+                    }
+                }
 
                 return Ok(new
                 {
                     message = "Profile picture uploaded successfully.",
-                    fileName = blobName
+                    fileName = newBlobName
                 });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine(
+                    $"PROFILE PICTURE UPLOAD FAILED: {ex}");
+
+                // Clean up the new picture if the operation fails
+
+                if (!string.IsNullOrWhiteSpace(newBlobName))
+                {
+                    try
+                    {
+                        await _blobStorage.DeleteAsync(newBlobName);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        Console.WriteLine(
+                            $"NEW PROFILE PICTURE CLEANUP FAILED: {cleanupException}");
+                    }
+                }
+
                 return StatusCode(500, new
                 {
                     message = "Unable to upload profile picture."
@@ -243,24 +332,29 @@ namespace RaceDay.Api.Controllers
 
                 string blobName = result.ToString()!;
 
-                var picture = await _blobStorage.DownloadAsync(blobName);
+                var picture =
+                    await _blobStorage.DownloadAsync(blobName);
 
                 return File(
                     picture.Content,
                     picture.ContentType);
             }
-            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            catch (Azure.RequestFailedException ex)
+                when (ex.Status == 404)
             {
-                return NotFound("Profile picture not found in storage.");
+                return NotFound(
+                    "Profile picture not found in storage.");
             }
             catch (SqlException)
             {
-                return StatusCode(500,
+                return StatusCode(
+                    500,
                     "Database error retrieving profile picture.");
             }
             catch (Exception)
             {
-                return StatusCode(500,
+                return StatusCode(
+                    500,
                     "Unable to retrieve profile picture.");
             }
             finally

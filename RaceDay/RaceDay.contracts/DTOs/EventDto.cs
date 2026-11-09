@@ -9,5 +9,8 @@
         public DateTime EventDate { get; set; }
 
         public string Location { get; set; } = string.Empty;
+
+        // Azure event banner filename
+        public string? BannerImageURL { get; set; }
     }
 }

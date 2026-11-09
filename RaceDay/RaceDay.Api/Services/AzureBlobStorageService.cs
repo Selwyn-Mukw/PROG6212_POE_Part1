@@ -65,5 +65,16 @@ namespace RaceDay.Api.Services
 
             return (content, contentType);
         }
+        // Delete profile picture
+        public async Task DeleteAsync(string blobName)
+        {
+            if (string.IsNullOrWhiteSpace(blobName))
+                return;
+
+            BlobClient blobClient =
+                _containerClient.GetBlobClient(blobName);
+
+            await blobClient.DeleteIfExistsAsync();
+        }
     }
 }
