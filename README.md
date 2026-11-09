@@ -429,6 +429,9 @@ PART 6 – PROJECT VIDEOS AND EVIDENCE
 
 20. CI/CD Evidence
     <img width="1880" height="877" alt="image" src="https://github.com/user-attachments/assets/0ea83279-7ced-4eef-86e8-353bf0a56ff7" />
+    <img width="1881" height="727" alt="Screenshot 2026-11-09 132436" src="https://github.com/user-attachments/assets/3f8d2b0d-4fb3-47cc-ac11-bc5fb9637b90" />
+    <img width="1865" height="772" alt="image" src="https://github.com/user-attachments/assets/10f31d90-2e8f-4444-b505-2f29c56d5ea0" />
+
 
 22. Automated Test evidence
 
